@@ -68,12 +68,18 @@ Evaluation score now combines:
 - activity (`w_activity`)
 - uncertainty (`w_uncertainty`)
 - structure confidence (`w_structure`)
+- pLDDT (`w_plddt`)
+- pTM (`w_ptm`)
+- inverse PAE (`w_pae`)
 
 Default weights in `config.yaml`:
-- `w_stability: 0.40`
-- `w_activity: 0.40`
+- `w_stability: 0.35`
+- `w_activity: 0.35`
 - `w_uncertainty: 0.10`
 - `w_structure: 0.10`
+- `w_plddt: 0.05`
+- `w_ptm: 0.03`
+- `w_pae: 0.02`
 
 ## Upgrade Step: Labeled Property Model
 You can train a lightweight labeled surrogate model (stability/activity) and plug it into MAPLE.

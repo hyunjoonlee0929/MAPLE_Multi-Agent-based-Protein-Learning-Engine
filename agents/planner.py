@@ -20,9 +20,12 @@ class PlannerAgent:
         config.setdefault("top_k", self.default_top_k)
         config.setdefault("mutation_rate", 1)
 
-        config.setdefault("w_stability", 0.40)
-        config.setdefault("w_activity", 0.40)
+        config.setdefault("w_stability", 0.35)
+        config.setdefault("w_activity", 0.35)
         config.setdefault("w_uncertainty", 0.10)
         config.setdefault("w_structure", 0.10)
+        config.setdefault("w_plddt", 0.05)
+        config.setdefault("w_ptm", 0.03)
+        config.setdefault("w_pae", 0.02)
 
         return state

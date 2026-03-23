@@ -19,10 +19,13 @@ def test_pipeline_runs_multiple_iterations_end_to_end() -> None:
         "mutation_rate": 1,
         "selection_strategy": "diverse",
         "min_hamming_distance": 1,
-        "w_stability": 0.40,
-        "w_activity": 0.40,
+        "w_stability": 0.35,
+        "w_activity": 0.35,
         "w_uncertainty": 0.10,
         "w_structure": 0.10,
+        "w_plddt": 0.05,
+        "w_ptm": 0.03,
+        "w_pae": 0.02,
     }
 
     pipeline = MaplePipeline(

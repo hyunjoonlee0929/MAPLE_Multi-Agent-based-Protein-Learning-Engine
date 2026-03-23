@@ -22,6 +22,9 @@ def test_planner_agent_sets_defaults() -> None:
     assert state["config"]["top_k"] == 2
     assert state["config"]["mutation_rate"] == 1
     assert state["config"]["w_structure"] == 0.10
+    assert state["config"]["w_plddt"] == 0.05
+    assert state["config"]["w_ptm"] == 0.03
+    assert state["config"]["w_pae"] == 0.02
 
 
 
@@ -95,13 +98,16 @@ def test_evaluation_agent_filters_invalid_and_ranks_scores() -> None:
     state = create_initial_state("MKTFFV")
     state["iteration"] = 1
     state["config"] = {
-        "w_stability": 0.40,
-        "w_activity": 0.40,
+        "w_stability": 0.35,
+        "w_activity": 0.35,
         "w_uncertainty": 0.10,
         "w_structure": 0.10,
+        "w_plddt": 0.05,
+        "w_ptm": 0.03,
+        "w_pae": 0.02,
     }
     state["sequences"] = ["MKTFFV", "INVALIDX"]
-    state["structures"] = [{"confidence": 0.7}, {"confidence": 0.1}]
+    state["structures"] = [{"confidence": 0.7, "plddt_mean": 70, "ptm": 0.7, "pae_mean": 8}, {"confidence": 0.1}]
     state["embeddings"] = [np.ones((4,), dtype=np.float32), np.zeros((4,), dtype=np.float32)]
     state["properties"] = [
         {"stability": 0.8, "activity": 0.9, "uncertainty": 0.2},
@@ -123,6 +129,9 @@ def test_evaluation_agent_uncertainty_weight_can_change_ranking() -> None:
         "w_activity": 0.0,
         "w_uncertainty": 1.0,
         "w_structure": 0.0,
+        "w_plddt": 0.0,
+        "w_ptm": 0.0,
+        "w_pae": 0.0,
     }
     state["sequences"] = ["AAAA", "AAAT"]
     state["structures"] = [{"confidence": 0.1}, {"confidence": 0.1}]
@@ -144,9 +153,39 @@ def test_evaluation_agent_structure_weight_can_change_ranking() -> None:
         "w_activity": 0.0,
         "w_uncertainty": 0.0,
         "w_structure": 1.0,
+        "w_plddt": 0.0,
+        "w_ptm": 0.0,
+        "w_pae": 0.0,
     }
     state["sequences"] = ["AAAA", "AAAT"]
     state["structures"] = [{"confidence": 0.2}, {"confidence": 0.9}]
+    state["embeddings"] = [np.zeros((2,), dtype=np.float32), np.zeros((2,), dtype=np.float32)]
+    state["properties"] = [
+        {"stability": 0.0, "activity": 0.0, "uncertainty": 0.0},
+        {"stability": 0.0, "activity": 0.0, "uncertainty": 0.0},
+    ]
+
+    updated = EvaluationAgent().run(state)
+    assert updated["sequences"][0] == "AAAT"
+
+
+
+def test_evaluation_agent_pae_weight_prefers_lower_pae() -> None:
+    state = create_initial_state("AAAA")
+    state["config"] = {
+        "w_stability": 0.0,
+        "w_activity": 0.0,
+        "w_uncertainty": 0.0,
+        "w_structure": 0.0,
+        "w_plddt": 0.0,
+        "w_ptm": 0.0,
+        "w_pae": 1.0,
+    }
+    state["sequences"] = ["AAAA", "AAAT"]
+    state["structures"] = [
+        {"confidence": 0.0, "plddt_mean": 0.0, "ptm": 0.0, "pae_mean": 20.0},
+        {"confidence": 0.0, "plddt_mean": 0.0, "ptm": 0.0, "pae_mean": 5.0},
+    ]
     state["embeddings"] = [np.zeros((2,), dtype=np.float32), np.zeros((2,), dtype=np.float32)]
     state["properties"] = [
         {"stability": 0.0, "activity": 0.0, "uncertainty": 0.0},

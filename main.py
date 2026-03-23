@@ -141,6 +141,9 @@ def run_maple(
         "w_activity",
         "w_uncertainty",
         "w_structure",
+        "w_plddt",
+        "w_ptm",
+        "w_pae",
     ]:
         if key in overrides and overrides[key] is not None:
             runtime_cfg[key] = overrides[key]
@@ -221,6 +224,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--w-activity", type=float, default=None, help="Score weight for activity")
     parser.add_argument("--w-uncertainty", type=float, default=None, help="Score weight for uncertainty")
     parser.add_argument("--w-structure", type=float, default=None, help="Score weight for structure confidence")
+    parser.add_argument("--w-plddt", type=float, default=None, help="Score weight for pLDDT")
+    parser.add_argument("--w-ptm", type=float, default=None, help="Score weight for pTM")
+    parser.add_argument("--w-pae", type=float, default=None, help="Score weight for inverse PAE")
 
     parser.add_argument("--embedding-dim", type=int, default=None, help="Override embedding dimension")
     parser.add_argument("--property-checkpoint", type=str, default=None, help="Property checkpoint path")
@@ -262,6 +268,9 @@ def main() -> None:
         "w_activity": args.w_activity,
         "w_uncertainty": args.w_uncertainty,
         "w_structure": args.w_structure,
+        "w_plddt": args.w_plddt,
+        "w_ptm": args.w_ptm,
+        "w_pae": args.w_pae,
         "embedding_dim": args.embedding_dim,
         "property_checkpoint": args.property_checkpoint,
         "uncertainty_samples": args.uncertainty_samples,

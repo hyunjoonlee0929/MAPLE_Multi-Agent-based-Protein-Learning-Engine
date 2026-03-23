@@ -93,6 +93,9 @@ with st.sidebar:
     w_activity = st.slider("Activity Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_activity", 0.40)), step=0.01)
     w_uncertainty = st.slider("Uncertainty Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_uncertainty", 0.10)), step=0.01)
     w_structure = st.slider("Structure Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_structure", 0.10)), step=0.01)
+    w_plddt = st.slider("pLDDT Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_plddt", 0.05)), step=0.01)
+    w_ptm = st.slider("pTM Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_ptm", 0.03)), step=0.01)
+    w_pae = st.slider("PAE(inv) Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_pae", 0.02)), step=0.01)
 
     st.subheader("Model")
     model = dict(cfg.get("model", {}))
@@ -157,6 +160,9 @@ if run_clicked:
         "w_activity": float(w_activity),
         "w_uncertainty": float(w_uncertainty),
         "w_structure": float(w_structure),
+        "w_plddt": float(w_plddt),
+        "w_ptm": float(w_ptm),
+        "w_pae": float(w_pae),
         "structure_backend": structure_backend,
         "esmfold_command": esmfold_command.strip() or None,
         "alphafold2_command": alphafold2_command.strip() or None,
@@ -226,6 +232,9 @@ if run_clicked:
                 "structure_backend": structure.get("backend"),
                 "structure_mode": structure.get("mode"),
                 "structure_confidence": structure.get("confidence"),
+                "plddt_mean": structure.get("plddt_mean"),
+                "ptm": structure.get("ptm"),
+                "pae_mean": structure.get("pae_mean"),
             }
         )
     st.dataframe(pd.DataFrame(records), use_container_width=True)
