@@ -11,6 +11,15 @@ runtime:
   mutation_rate: 1
   selection_strategy: "diverse"
   min_hamming_distance: 2
+
+  constraint_enabled: false
+  min_stability: null
+  min_activity: null
+  min_structure_confidence: null
+  min_plddt: null
+  min_ptm: null
+  max_pae: null
+
   w_stability: 0.35
   w_activity: 0.35
   w_uncertainty: 0.10

@@ -87,6 +87,19 @@ with st.sidebar:
         max_value=10,
         value=int(runtime.get("min_hamming_distance", 2)),
     )
+    constraint_enabled = st.checkbox("Enable Constraints", value=bool(runtime.get("constraint_enabled", False)))
+    min_stability = st.slider("Min Stability", min_value=-5.0, max_value=5.0, value=float(runtime.get("min_stability", -5.0)), step=0.05)
+    min_activity = st.slider("Min Activity", min_value=-5.0, max_value=5.0, value=float(runtime.get("min_activity", -5.0)), step=0.05)
+    min_structure_confidence = st.slider(
+        "Min Structure Confidence",
+        min_value=0.0,
+        max_value=1.0,
+        value=float(runtime.get("min_structure_confidence", 0.0)),
+        step=0.01,
+    )
+    min_plddt = st.slider("Min pLDDT", min_value=0.0, max_value=100.0, value=float(runtime.get("min_plddt", 0.0)), step=1.0)
+    min_ptm = st.slider("Min pTM", min_value=0.0, max_value=1.0, value=float(runtime.get("min_ptm", 0.0)), step=0.01)
+    max_pae = st.slider("Max PAE", min_value=0.0, max_value=50.0, value=float(runtime.get("max_pae", 50.0)), step=0.5)
 
     st.subheader("Scoring Weights")
     w_stability = st.slider("Stability Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_stability", 0.40)), step=0.01)
@@ -156,6 +169,13 @@ if run_clicked:
         "mutation_rate": int(mutation_rate),
         "selection_strategy": selection_strategy,
         "min_hamming_distance": int(min_hamming_distance),
+        "constraint_enabled": bool(constraint_enabled),
+        "min_stability": None if not constraint_enabled else float(min_stability),
+        "min_activity": None if not constraint_enabled else float(min_activity),
+        "min_structure_confidence": None if not constraint_enabled else float(min_structure_confidence),
+        "min_plddt": None if not constraint_enabled else float(min_plddt),
+        "min_ptm": None if not constraint_enabled else float(min_ptm),
+        "max_pae": None if not constraint_enabled else float(max_pae),
         "w_stability": float(w_stability),
         "w_activity": float(w_activity),
         "w_uncertainty": float(w_uncertainty),
@@ -203,6 +223,14 @@ if run_clicked:
         st.warning(
             f"{structure_backend} adapter is running in mock mode. "
             "Provide a valid external command to switch to external mode."
+        )
+
+    constraint_summary = final_state.get("constraint_summary", {})
+    if constraint_summary.get("enabled"):
+        st.info(
+            "Constrained optimization enabled: "
+            f"{constraint_summary.get('passed', 0)}/{constraint_summary.get('total', 0)} "
+            "candidates satisfied constraints."
         )
 
     st.subheader("Top Sequence")

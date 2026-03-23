@@ -28,4 +28,6 @@ class PlannerAgent:
         config.setdefault("w_ptm", 0.03)
         config.setdefault("w_pae", 0.02)
 
+        config.setdefault("constraint_enabled", False)
+
         return state

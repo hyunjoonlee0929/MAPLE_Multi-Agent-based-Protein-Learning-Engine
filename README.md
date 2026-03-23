@@ -81,6 +81,30 @@ Default weights in `config.yaml`:
 - `w_ptm: 0.03`
 - `w_pae: 0.02`
 
+## Constrained Optimization
+Optimization can enforce feasibility constraints before selecting elites.
+
+Runtime constraints:
+- `constraint_enabled`
+- `min_stability`
+- `min_activity`
+- `min_structure_confidence`
+- `min_plddt`
+- `min_ptm`
+- `max_pae`
+
+Example:
+```bash
+cd /Users/hyunjoon/codex/MAPLE
+python3 main.py \
+  --constraint-enabled \
+  --min-plddt 60 \
+  --min-ptm 0.5 \
+  --max-pae 20 \
+  --min-stability 0.2 \
+  --min-activity 0.2
+```
+
 ## Upgrade Step: Labeled Property Model
 You can train a lightweight labeled surrogate model (stability/activity) and plug it into MAPLE.
 

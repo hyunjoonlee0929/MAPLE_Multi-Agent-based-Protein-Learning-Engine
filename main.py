@@ -137,6 +137,13 @@ def run_maple(
         "mutation_rate",
         "selection_strategy",
         "min_hamming_distance",
+        "constraint_enabled",
+        "min_stability",
+        "min_activity",
+        "min_structure_confidence",
+        "min_plddt",
+        "min_ptm",
+        "max_pae",
         "w_stability",
         "w_activity",
         "w_uncertainty",
@@ -219,6 +226,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mutation-rate", type=int, default=None, help="Override mutations per sequence")
     parser.add_argument("--selection-strategy", type=str, default=None, help="Elite selection strategy")
     parser.add_argument("--min-hamming-distance", type=int, default=None, help="Minimum Hamming distance")
+    parser.add_argument("--constraint-enabled", action="store_true", default=None, help="Enable constrained optimization")
+    parser.add_argument("--min-stability", type=float, default=None, help="Minimum stability constraint")
+    parser.add_argument("--min-activity", type=float, default=None, help="Minimum activity constraint")
+    parser.add_argument("--min-structure-confidence", type=float, default=None, help="Minimum structure confidence constraint")
+    parser.add_argument("--min-plddt", type=float, default=None, help="Minimum pLDDT constraint")
+    parser.add_argument("--min-ptm", type=float, default=None, help="Minimum pTM constraint")
+    parser.add_argument("--max-pae", type=float, default=None, help="Maximum PAE constraint")
 
     parser.add_argument("--w-stability", type=float, default=None, help="Score weight for stability")
     parser.add_argument("--w-activity", type=float, default=None, help="Score weight for activity")
@@ -264,6 +278,13 @@ def main() -> None:
         "mutation_rate": args.mutation_rate,
         "selection_strategy": args.selection_strategy,
         "min_hamming_distance": args.min_hamming_distance,
+        "constraint_enabled": args.constraint_enabled,
+        "min_stability": args.min_stability,
+        "min_activity": args.min_activity,
+        "min_structure_confidence": args.min_structure_confidence,
+        "min_plddt": args.min_plddt,
+        "min_ptm": args.min_ptm,
+        "max_pae": args.max_pae,
         "w_stability": args.w_stability,
         "w_activity": args.w_activity,
         "w_uncertainty": args.w_uncertainty,

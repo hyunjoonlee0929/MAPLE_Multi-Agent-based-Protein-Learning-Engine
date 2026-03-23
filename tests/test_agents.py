@@ -25,6 +25,7 @@ def test_planner_agent_sets_defaults() -> None:
     assert state["config"]["w_plddt"] == 0.05
     assert state["config"]["w_ptm"] == 0.03
     assert state["config"]["w_pae"] == 0.02
+    assert state["config"]["constraint_enabled"] is False
 
 
 
@@ -202,12 +203,40 @@ def test_optimization_agent_generates_next_population() -> None:
     state["iteration"] = 2
     state["config"] = {"top_k": 2, "num_candidates": 6, "mutation_rate": 1}
     state["sequences"] = ["MKTFFV", "MKTFFI", "MKTFFL"]
+    state["structures"] = [{}, {}, {}]
+    state["properties"] = [{}, {}, {}]
 
     updated = OptimizationAgent(random_seed=3).run(state)
 
     assert len(updated["next_sequences"]) == 6
     assert updated["next_sequences"][0] == "MKTFFV"
     assert updated["next_sequences"][1] == "MKTFFI"
+
+
+
+def test_optimization_agent_respects_constraints_when_enabled() -> None:
+    state = create_initial_state("AAAA")
+    state["iteration"] = 0
+    state["config"] = {
+        "top_k": 2,
+        "num_candidates": 4,
+        "mutation_rate": 1,
+        "selection_strategy": "elitist",
+        "constraint_enabled": True,
+        "min_stability": 0.7,
+    }
+    state["sequences"] = ["BAD", "GOOD", "OK"]
+    state["structures"] = [{"confidence": 0.9}, {"confidence": 0.9}, {"confidence": 0.9}]
+    state["properties"] = [
+        {"stability": 0.2, "activity": 1.0},
+        {"stability": 0.9, "activity": 1.0},
+        {"stability": 0.8, "activity": 1.0},
+    ]
+
+    updated = OptimizationAgent(random_seed=1).run(state)
+    assert updated["next_sequences"][0] == "GOOD"
+    assert updated["next_sequences"][1] == "OK"
+    assert updated["constraint_summary"]["passed"] == 2
 
 
 
@@ -222,6 +251,8 @@ def test_optimization_agent_diverse_strategy_respects_distance() -> None:
         "min_hamming_distance": 2,
     }
     state["sequences"] = ["AAAA", "AAAT", "AATT", "TTTT"]
+    state["structures"] = [{}, {}, {}, {}]
+    state["properties"] = [{}, {}, {}, {}]
 
     updated = OptimizationAgent(random_seed=1).run(state)
     elite_a, elite_b = updated["next_sequences"][0], updated["next_sequences"][1]
