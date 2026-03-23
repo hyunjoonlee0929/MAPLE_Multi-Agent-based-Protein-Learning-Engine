@@ -5,7 +5,7 @@ MAPLE is a multi-agent system that autonomously explores protein sequence space 
 ## Core Scope
 - Multi-agent loop: planner -> sequence -> structure -> property -> optimization -> evaluation
 - Random mutation-based sequence exploration
-- Structure adapters: `dummy`, `esmfold`, `alphafold2` (mock mode by default, external tool mode optional)
+- Structure adapters: `dummy`, `esmfold`, `alphafold2`
 - Embedding + property prediction with uncertainty-aware scoring
 - Diversity-aware evolutionary optimization
 - Iteration artifact export (JSON/CSV)
@@ -28,19 +28,37 @@ cd /Users/hyunjoon/codex/MAPLE
 streamlit run app.py
 ```
 
-## Structure Backend Adapters
-MAPLE now supports `--structure-backend dummy|esmfold|alphafold2` at runtime.
+## Real Structure Adapter Integration
+MAPLE now supports runtime structure adapter execution for `esmfold` and `alphafold2`.
 
-- `dummy`: deterministic mock structure output
-- `esmfold` / `alphafold2`: adapter backends
-  - Default: mock mode (no external dependency required)
-  - Optional: external command mode via:
-    - `--esmfold-command`
-    - `--alphafold2-command`
+### ESMFold adapter command (included)
+Default command in `config.yaml`:
+```bash
+python3 scripts/run_esmfold_adapter.py --sequence-file {sequence_file} --output-file {output_file} --allow-mock
+```
 
-Command placeholders:
-- `{sequence_file}`: path to input sequence text file
-- `{output_file}`: path where your external tool should write JSON/text output
+- If transformers/weights are available: real ESMFold inference result is written.
+- If unavailable and `--allow-mock` is set: adapter emits mock JSON and pipeline continues.
+
+### Run with ESMFold backend
+```bash
+cd /Users/hyunjoon/codex/MAPLE
+python3 main.py \
+  --structure-backend esmfold \
+  --esmfold-command "python3 scripts/run_esmfold_adapter.py --sequence-file {sequence_file} --output-file {output_file} --allow-mock" \
+  --structure-timeout-sec 120 \
+  --structure-retries 1
+```
+
+### External command contract
+Your external backend command must:
+- read sequence from `{sequence_file}`
+- write JSON to `{output_file}`
+
+Recommended JSON keys:
+- `confidence` (float)
+- `engine` (string)
+- optional: `model_id`, `pdb_path`, `pae_mean`, `ptm`, `plddt_mean`, `runtime_sec`, `note`
 
 ## Upgrade Step: Labeled Property Model
 You can train a lightweight labeled surrogate model (stability/activity) and plug it into MAPLE.
@@ -83,6 +101,7 @@ The Streamlit UI also supports entering the checkpoint path in the sidebar.
 ## Key Files
 - `main.py`: reusable run service + CLI entrypoint
 - `app.py`: Streamlit UI dashboard
+- `scripts/run_esmfold_adapter.py`: real/mock ESMFold adapter command
 - `scripts/train_property_numpy.py`: label-based NPZ property model trainer
 - `core/pipeline.py`: orchestration loop
 - `core/reporting.py`: artifact export

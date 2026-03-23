@@ -153,6 +153,8 @@ def run_maple(
     structure_options = {
         "esmfold_command": _pick("esmfold_command", model_cfg.get("esmfold_command")),
         "alphafold2_command": _pick("alphafold2_command", model_cfg.get("alphafold2_command")),
+        "structure_timeout_sec": _pick("structure_timeout_sec", model_cfg.get("structure_timeout_sec", 60)),
+        "structure_retries": _pick("structure_retries", model_cfg.get("structure_retries", 0)),
     }
 
     state = create_initial_state(seed_sequence)
@@ -220,6 +222,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--structure-backend", type=str, default=None, help="Structure backend")
     parser.add_argument("--esmfold-command", type=str, default=None, help="Optional external ESMFold command")
     parser.add_argument("--alphafold2-command", type=str, default=None, help="Optional external AlphaFold2 command")
+    parser.add_argument("--structure-timeout-sec", type=int, default=None, help="Timeout per structure external call")
+    parser.add_argument("--structure-retries", type=int, default=None, help="Retry count for structure external calls")
     parser.add_argument("--output-dir", type=str, default="outputs", help="Artifact directory")
 
     return parser.parse_args()
@@ -256,6 +260,8 @@ def main() -> None:
         "structure_backend": args.structure_backend,
         "esmfold_command": args.esmfold_command,
         "alphafold2_command": args.alphafold2_command,
+        "structure_timeout_sec": args.structure_timeout_sec,
+        "structure_retries": args.structure_retries,
     }
 
     final_state, resolved, output_dir = run_maple(

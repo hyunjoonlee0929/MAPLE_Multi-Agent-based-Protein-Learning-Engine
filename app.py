@@ -110,6 +110,20 @@ with st.sidebar:
         value=str(model.get("alphafold2_command", "")),
         help="Use placeholders {sequence_file} and {output_file}. If empty, adapter mock is used.",
     )
+    structure_timeout_sec = st.slider(
+        "Structure Timeout (sec)",
+        min_value=5,
+        max_value=600,
+        value=int(model.get("structure_timeout_sec", 120)),
+        step=5,
+    )
+    structure_retries = st.slider(
+        "Structure Retries",
+        min_value=0,
+        max_value=5,
+        value=int(model.get("structure_retries", 1)),
+        step=1,
+    )
     embedding_dim = st.slider("Embedding Dim", min_value=8, max_value=1024, value=int(model.get("embedding_dim", 128)), step=8)
     uncertainty_samples = st.slider("Uncertainty Samples", min_value=1, max_value=20, value=int(model.get("uncertainty_samples", 5)))
     uncertainty_noise = st.slider("Uncertainty Noise", min_value=0.0, max_value=0.2, value=float(model.get("uncertainty_noise", 0.02)), step=0.005)
@@ -137,6 +151,8 @@ if run_clicked:
         "structure_backend": structure_backend,
         "esmfold_command": esmfold_command.strip() or None,
         "alphafold2_command": alphafold2_command.strip() or None,
+        "structure_timeout_sec": int(structure_timeout_sec),
+        "structure_retries": int(structure_retries),
         "embedding_dim": int(embedding_dim),
         "property_checkpoint": property_checkpoint.strip() or None,
         "uncertainty_samples": int(uncertainty_samples),
