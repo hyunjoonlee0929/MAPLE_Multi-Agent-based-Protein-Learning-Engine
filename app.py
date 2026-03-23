@@ -299,6 +299,20 @@ if run_clicked:
             "Provide a valid external command to switch to external mode."
         )
 
+    phase_report = final_state.get("phase_report", {})
+    if phase_report:
+        st.subheader("Phase Status")
+        p1, p2, p3 = st.columns(3)
+        p1.metric("Current Phase", str(phase_report.get("current_phase", "phase2")).upper())
+        p2.metric("Transition Decision", str(phase_report.get("transition_decision", "stay_phase2")))
+        p3.metric("Phase 3 Ready", "Yes" if bool(phase_report.get("phase3_ready", False)) else "No")
+
+        unmet = phase_report.get("phase3_unmet_gates", [])
+        if unmet:
+            st.warning("Unmet Phase 3 gates: " + ", ".join(unmet))
+        else:
+            st.success("All Phase 3 gates are satisfied.")
+
     constraint_summary = final_state.get("constraint_summary", {})
     if constraint_summary.get("enabled"):
         pass_rate_pct = 100.0 * float(constraint_summary.get("passed", 0)) / max(1, int(constraint_summary.get("total", 0)))

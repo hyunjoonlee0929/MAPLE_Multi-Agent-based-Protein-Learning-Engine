@@ -15,6 +15,7 @@ from agents.planner import PlannerAgent
 from agents.property_agent import PropertyAgent
 from agents.sequence_agent import SequenceAgent
 from agents.structure_agent import StructureAgent
+from core.phase import build_phase_report
 from core.pipeline import MaplePipeline, PipelineConfig
 from core.reporting import export_final_summary, export_history_csv, export_history_json
 from core.state import create_initial_state
@@ -203,10 +204,6 @@ def run_maple(
     if not resolved_output_dir.is_absolute():
         resolved_output_dir = Path(__file__).parent / resolved_output_dir
 
-    export_history_json(final_state["history"], resolved_output_dir / "history.json")
-    export_history_csv(final_state["history"], resolved_output_dir / "history.csv")
-    export_final_summary(final_state, resolved_output_dir / "summary.json")
-
     resolved = {
         "seed": seed,
         "num_iterations": num_iterations,
@@ -214,6 +211,18 @@ def run_maple(
         "selection_strategy": runtime_cfg.get("selection_strategy", "elitist"),
         "output_dir": str(resolved_output_dir),
     }
+    phase_report = build_phase_report(final_state, resolved)
+    final_state["phase_report"] = phase_report
+
+    export_history_json(final_state["history"], resolved_output_dir / "history.json")
+    export_history_csv(final_state["history"], resolved_output_dir / "history.csv")
+    export_final_summary(
+        final_state,
+        resolved_output_dir / "summary.json",
+        extra={"phase_report": phase_report},
+    )
+
+    resolved["phase"] = phase_report
     return final_state, resolved, resolved_output_dir
 
 
@@ -340,6 +349,8 @@ def main() -> None:
     print(f"Selection strategy: {resolved['selection_strategy']}")
     print(f"Final best sequence: {final_state['sequences'][0] if final_state['sequences'] else 'N/A'}")
     print(f"Final best score: {final_state['scores'][0] if final_state['scores'] else 'N/A'}")
+    print(f"Current phase: {resolved.get('phase', {}).get('current_phase', 'phase2')}")
+    print(f"Phase 3 ready: {resolved.get('phase', {}).get('phase3_ready', False)}")
     print(f"Artifacts: {resolved['output_dir']}")
 
 

@@ -55,12 +55,14 @@ def export_history_csv(history: list[dict], output_path: Path) -> None:
 
 
 
-def export_final_summary(final_state: dict, output_path: Path) -> None:
+def export_final_summary(final_state: dict, output_path: Path, extra: dict | None = None) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "best_sequence": final_state["sequences"][0] if final_state.get("sequences") else None,
         "best_score": final_state["scores"][0] if final_state.get("scores") else None,
         "history_entries": len(final_state.get("history", [])),
     }
+    if extra:
+        payload.update(extra)
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)

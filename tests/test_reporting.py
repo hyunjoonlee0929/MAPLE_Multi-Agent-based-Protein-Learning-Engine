@@ -40,7 +40,11 @@ def test_reporting_exports_json_csv_and_summary(tmp_path: Path) -> None:
 
     export_history_json(history, json_path)
     export_history_csv(history, csv_path)
-    export_final_summary(final_state, summary_path)
+    export_final_summary(
+        final_state,
+        summary_path,
+        extra={"phase_report": {"current_phase": "phase2", "phase3_ready": False}},
+    )
 
     assert json_path.exists()
     assert csv_path.exists()
@@ -49,6 +53,7 @@ def test_reporting_exports_json_csv_and_summary(tmp_path: Path) -> None:
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["best_sequence"] == "AAAA"
     assert payload["best_score"] == 0.9
+    assert payload["phase_report"]["current_phase"] == "phase2"
 
     csv_text = csv_path.read_text(encoding="utf-8")
     assert "constraint_pass_rate" in csv_text

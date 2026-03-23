@@ -203,3 +203,27 @@ Per-iteration adapter observability fields are now stored in `history`:
 - `structure_external`, `structure_mock`, `structure_error_fallback`, `structure_total`
 
 These metrics are visualized in the Streamlit UI as a trend chart.
+
+## Phase Roadmap and Transition Gates
+MAPLE is now operated with explicit phase gates:
+- Current operating phase: **Phase 2** (Adapter-Integrated Optimization)
+- Next target phase: **Phase 3** (Model-Driven Design)
+
+Phase 3 transition gates (all required):
+- `num_iterations >= 10`
+- `best_score >= 0.75`
+- `constraint_pass_rate >= 0.70`
+- `structure_external_rate >= 0.80`
+- `structure_error_fallback_rate <= 0.05`
+
+The run summary now includes `phase_report`, and Streamlit shows unmet gates directly.
+
+### Generate a Phase Gate Report
+```bash
+cd MAPLE
+python3 scripts/phase_gate_report.py --num-iterations 10 --structure-backend esmfold
+```
+
+Artifacts:
+- `outputs/phase_gate_report/phase_gate_report.json`
+- `outputs/phase_gate_report/phase_gate_report.md`
