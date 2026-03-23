@@ -11,6 +11,8 @@ import streamlit as st
 
 from core.active_learning_jobs import run_active_learning_job
 from core.active_learning_view import active_learning_acquisition_rows, active_learning_round_rows
+from core.campaign_jobs import run_campaign_job
+from core.campaign_view import campaign_acquisition_rows, campaign_round_rows
 from core.multiobjective import build_pareto_candidate_rows
 from core.validation import cv_run_rows, leaderboard_rows
 from core.validation_jobs import run_validation_report_jobs
@@ -149,6 +151,30 @@ def _render_active_learning_report(active_learning_report_path_text: str) -> Non
     acq_df = pd.DataFrame(active_learning_acquisition_rows(payload))
     if not acq_df.empty:
         st.caption("Acquired batch details")
+        st.dataframe(acq_df, use_container_width=True)
+
+
+def _render_campaign_report(campaign_report_path_text: str) -> None:
+    st.subheader("Closed-Loop Campaign Reports")
+    payload = _load_json_if_exists(campaign_report_path_text)
+    if payload is None:
+        st.info("Campaign report not found yet. Run closed-loop campaign first.")
+        return
+
+    round_df = pd.DataFrame(campaign_round_rows(payload))
+    if not round_df.empty:
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Campaign Rounds", int(len(round_df)))
+        c2.metric("Latest MAPLE Best", f"{float(round_df.iloc[-1]['maple_best_score']):.4f}")
+        c3.metric("Latest Val RMSE", f"{float(round_df.iloc[-1]['val_rmse_mean']):.4f}")
+
+        st.line_chart(round_df.set_index("round")[["maple_best_score", "val_rmse_mean", "train_rmse_mean"]])
+        st.line_chart(round_df.set_index("round")[["acquired_stability_mean", "acquired_activity_mean"]])
+        st.dataframe(round_df, use_container_width=True)
+
+    acq_df = pd.DataFrame(campaign_acquisition_rows(payload))
+    if not acq_df.empty:
+        st.caption("Campaign acquired sequences")
         st.dataframe(acq_df, use_container_width=True)
 
 
@@ -377,6 +403,21 @@ with st.sidebar:
     al_beta = st.slider("AL Beta", min_value=0.0, max_value=2.0, value=0.30, step=0.05)
     al_split_seed = st.number_input("AL Split Seed", min_value=0, value=42, step=1)
     al_ridge_alphas = st.text_input("AL Ridge Alphas", value="1e-4,1e-3,1e-2,1e-1")
+    st.subheader("Closed-Loop Campaign")
+    campaign_report_path = st.text_input(
+        "Campaign Report JSON",
+        value="outputs/closed_loop_campaign/campaign_report.json",
+    )
+    campaign_config_path = st.text_input("Campaign Config", value="config.yaml")
+    campaign_data_path = st.text_input("Campaign Data CSV", value="data/sample_property_labels.csv")
+    campaign_output_dir = st.text_input("Campaign Output Dir", value="outputs/closed_loop_campaign")
+    campaign_rounds = st.slider("Campaign Rounds", min_value=1, max_value=10, value=3, step=1)
+    campaign_maple_iterations = st.slider("Campaign MAPLE Iterations", min_value=1, max_value=20, value=3, step=1)
+    campaign_acquisition_batch_size = st.slider("Campaign Acquisition Batch", min_value=1, max_value=20, value=4, step=1)
+    run_campaign_clicked = st.button(
+        "Run Closed-Loop Campaign",
+        use_container_width=True,
+    )
     run_active_learning_clicked = st.button(
         "Run Active Learning Cycle",
         use_container_width=True,
@@ -416,6 +457,39 @@ if run_active_learning_clicked:
             st.text(al_result.stdout.strip())
         if al_result.stderr.strip():
             st.text(al_result.stderr.strip())
+
+if run_campaign_clicked:
+    with st.spinner("Running closed-loop campaign..."):
+        campaign_result = run_campaign_job(
+            root=ROOT,
+            config_path=campaign_config_path.strip(),
+            data_path=campaign_data_path.strip(),
+            output_dir=campaign_output_dir.strip(),
+            rounds=int(campaign_rounds),
+            maple_iterations=int(campaign_maple_iterations),
+            acquisition_batch_size=int(campaign_acquisition_batch_size),
+            embedding_dim=int(embedding_dim),
+            val_ratio=float(validation_val_ratio),
+            split_seed=int(validation_split_seed),
+            ridge_alphas=validation_ridge_alphas_csv.strip(),
+            selection_strategy=selection_strategy,
+            bo_beta=float(bo_beta),
+            bo_trials_per_parent=int(bo_trials_per_parent),
+            num_candidates=int(num_candidates),
+            top_k=int(top_k),
+            mutation_rate=int(mutation_rate),
+            seed=int(seed),
+        )
+    if campaign_result.ok:
+        st.success("Closed-loop campaign completed.")
+    else:
+        st.error("Closed-loop campaign failed. Check logs below.")
+    with st.expander(f"Campaign Job (rc={campaign_result.returncode})", expanded=not campaign_result.ok):
+        st.code(" ".join(campaign_result.command))
+        if campaign_result.stdout.strip():
+            st.text(campaign_result.stdout.strip())
+        if campaign_result.stderr.strip():
+            st.text(campaign_result.stderr.strip())
 
 if generate_validation_reports_clicked:
     with st.spinner("Generating validation leaderboard and CV report..."):
@@ -642,7 +716,7 @@ if run_clicked:
 
     st.subheader("Resolved Settings")
     st.code(json.dumps(resolved, indent=2))
-elif not generate_validation_reports_clicked and not run_active_learning_clicked:
+elif not generate_validation_reports_clicked and not run_active_learning_clicked and not run_campaign_clicked:
     st.info("Configure parameters in the sidebar, then click 'Run MAPLE'.")
 
 st.divider()
@@ -652,3 +726,5 @@ _render_validation_reports(
 )
 st.divider()
 _render_active_learning_report(active_learning_report_path_text=al_report_path)
+st.divider()
+_render_campaign_report(campaign_report_path_text=campaign_report_path)

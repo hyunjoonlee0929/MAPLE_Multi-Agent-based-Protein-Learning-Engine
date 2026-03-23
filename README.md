@@ -316,6 +316,7 @@ The Streamlit UI also supports entering the checkpoint path in the sidebar.
 - Pareto front view for current run candidates (stability/activity/objective rank)
 - Sidebar button to run active learning cycle and inspect logs
 - Active learning report panel (round-wise val metrics and acquired-batch trend)
+- Closed-loop campaign panel (round-wise MAPLE score / retrain metrics / acquired sequences)
 - Downloadable artifacts (`history.json`, `summary.json`)
 
 `summary.json` now includes `validation_reports` when report paths are provided.
