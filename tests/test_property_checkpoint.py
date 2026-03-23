@@ -28,3 +28,32 @@ def test_property_predictor_loads_numpy_linear_checkpoint(tmp_path: Path) -> Non
     expected = x @ weights + bias
     assert np.allclose(preds, expected)
     assert float(unc[0]) == 0.0
+
+
+def test_property_predictor_loads_numpy_linear_ensemble_checkpoint(tmp_path: Path) -> None:
+    weights = np.array(
+        [
+            [[2.0, -1.0], [0.5, 1.5]],
+            [[1.8, -0.8], [0.7, 1.3]],
+        ],
+        dtype=np.float32,
+    )
+    bias = np.array([[0.1, -0.2], [0.0, -0.1]], dtype=np.float32)
+
+    ckpt = tmp_path / "property_linear_ens.npz"
+    np.savez(ckpt, model_type="numpy_linear_ensemble", embedding_dim=np.int32(2), weights=weights, bias=bias)
+
+    predictor = PropertyPredictor(
+        embedding_dim=2,
+        checkpoint_path=str(ckpt),
+        uncertainty_samples=1,
+        uncertainty_noise=0.0,
+    )
+    x = np.array([[1.0, 2.0]], dtype=np.float32)
+    preds, unc = predictor.predict_with_uncertainty(x)
+
+    members = np.einsum("nd,edm->enm", x, weights) + bias[:, None, :]
+    expected = np.mean(members, axis=0)
+    expected_unc = np.mean(np.std(members, axis=0), axis=1)
+    assert np.allclose(preds, expected)
+    assert np.allclose(unc, expected_unc)

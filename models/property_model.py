@@ -70,10 +70,20 @@ class NumpyPropertyPredictor:
         self.mode = "mlp"
 
         if weights is not None and bias is not None:
-            self.mode = "linear"
-            self.linear_weights = np.asarray(weights, dtype=np.float32)
-            self.linear_bias = np.asarray(bias, dtype=np.float32)
-            return
+            w = np.asarray(weights, dtype=np.float32)
+            b = np.asarray(bias, dtype=np.float32)
+            if w.ndim == 2 and b.ndim == 1:
+                self.mode = "linear"
+                self.linear_weights = w
+                self.linear_bias = b
+                return
+            if w.ndim == 3 and b.ndim == 2:
+                # Ensemble of linear models: [E, D, 2], [E, 2]
+                self.mode = "linear_ensemble"
+                self.ensemble_weights = w
+                self.ensemble_bias = b
+                return
+            raise ValueError("Unsupported weight/bias shapes for NPZ checkpoint")
 
         rng = np.random.default_rng(42)
         self.w1 = rng.normal(0, 0.1, size=(embedding_dim, hidden_dim)).astype(np.float32)
@@ -95,9 +105,29 @@ class NumpyPropertyPredictor:
 
         if self.mode == "linear":
             return x @ self.linear_weights + self.linear_bias
+        if self.mode == "linear_ensemble":
+            # [E, N, 2] -> mean over ensemble axis.
+            members = np.einsum("nd,edm->enm", x, self.ensemble_weights) + self.ensemble_bias[:, None, :]
+            return np.mean(members, axis=0)
 
         h = np.maximum(0.0, x @ self.w1 + self.b1)
         return h @ self.w2 + self.b2
+
+    def predict_with_uncertainty(self, embedding_batch) -> tuple[np.ndarray, np.ndarray]:
+        x = np.asarray(embedding_batch, dtype=np.float32)
+        if x.ndim == 1:
+            x = np.expand_dims(x, axis=0)
+        if x.size == 0:
+            return np.empty((0, 2), dtype=np.float32), np.empty((0,), dtype=np.float32)
+
+        if self.mode == "linear_ensemble":
+            members = np.einsum("nd,edm->enm", x, self.ensemble_weights) + self.ensemble_bias[:, None, :]
+            mean_preds = np.mean(members, axis=0).astype(np.float32)
+            unc = np.mean(np.std(members, axis=0), axis=1).astype(np.float32)
+            return mean_preds, unc
+
+        preds = np.asarray(self.predict(x), dtype=np.float32)
+        return preds, np.zeros((preds.shape[0],), dtype=np.float32)
 
 
 class PropertyPredictor:
@@ -147,6 +177,13 @@ class PropertyPredictor:
         x = np.asarray(embedding_batch, dtype=np.float32)
         if x.size == 0:
             return np.empty((0, 2), dtype=np.float32), np.empty((0,), dtype=np.float32)
+
+        if hasattr(self.backend, "predict_with_uncertainty") and str(getattr(self.backend, "mode", "")) == "linear_ensemble":
+            try:
+                preds, unc = self.backend.predict_with_uncertainty(x)
+                return np.asarray(preds, dtype=np.float32), np.asarray(unc, dtype=np.float32)
+            except Exception:
+                pass
 
         if self.uncertainty_samples <= 1 or self.uncertainty_noise <= 0:
             preds = np.asarray(self.predict(x), dtype=np.float32)

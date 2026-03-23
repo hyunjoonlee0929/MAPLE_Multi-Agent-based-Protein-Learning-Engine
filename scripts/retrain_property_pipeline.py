@@ -16,12 +16,15 @@ if str(ROOT) not in sys.path:
 from core.retraining import select_best_trial
 from models.embedding_model import build_embedding_model
 from scripts.train_property_numpy import (
+    fit_ridge_ensemble,
     fit_ridge_regression,
     load_dataset,
+    predict_linear_ensemble,
     predict_linear,
     split_train_val,
     split_train_val_with_indices,
 )
+from utils.calibration import regression_ece
 from utils.metrics import evaluate_property_metrics
 
 
@@ -50,6 +53,10 @@ def main() -> None:
     parser.add_argument("--disable-embedding-mock-fallback", action="store_true")
     parser.add_argument("--val-ratio", type=float, default=0.2)
     parser.add_argument("--split-seed", type=int, default=42)
+    parser.add_argument("--split-mode", type=str, default="random", help="Split strategy: random|scaffold")
+    parser.add_argument("--scaffold-k", type=int, default=3, help="Scaffold key size for split_mode=scaffold")
+    parser.add_argument("--ensemble-size", type=int, default=1, help="Number of bootstrap ensemble members")
+    parser.add_argument("--ece-bins", type=int, default=10, help="Bin count for regression ECE")
     parser.add_argument(
         "--val-index-file",
         type=str,
@@ -104,6 +111,8 @@ def main() -> None:
             targets,
             val_ratio=float(args.val_ratio),
             seed=int(args.split_seed),
+            split_mode=str(args.split_mode),
+            scaffold_k=int(args.scaffold_k),
         )
     embedder = build_embedding_model(
         backend=str(args.embedding_backend),
@@ -119,12 +128,21 @@ def main() -> None:
 
     alpha_grid = parse_alpha_grid(args.ridge_alphas)
     trials: list[dict] = []
-    best_weights = None
-    best_bias = None
+    ensemble_size = max(1, int(args.ensemble_size))
 
     for alpha in alpha_grid:
-        weights, bias = fit_ridge_regression(train_features, train_targets, ridge_alpha=float(alpha))
-        val_preds = predict_linear(val_features, weights, bias)
+        if ensemble_size > 1:
+            weights, bias = fit_ridge_ensemble(
+                train_features,
+                train_targets,
+                ridge_alpha=float(alpha),
+                ensemble_size=ensemble_size,
+                seed=int(args.split_seed),
+            )
+            val_preds, _ = predict_linear_ensemble(val_features, weights, bias)
+        else:
+            weights, bias = fit_ridge_regression(train_features, train_targets, ridge_alpha=float(alpha))
+            val_preds = predict_linear(val_features, weights, bias)
         val_metrics = evaluate_property_metrics(val_targets, val_preds)
         trial = {
             "ridge_alpha": float(alpha),
@@ -137,16 +155,31 @@ def main() -> None:
 
     best_trial = select_best_trial(trials)
     best_alpha = float(best_trial["ridge_alpha"])
-    best_weights, best_bias = fit_ridge_regression(train_features, train_targets, ridge_alpha=best_alpha)
-    train_preds = predict_linear(train_features, best_weights, best_bias)
-    val_preds = predict_linear(val_features, best_weights, best_bias)
+    if ensemble_size > 1:
+        best_weights, best_bias = fit_ridge_ensemble(
+            train_features,
+            train_targets,
+            ridge_alpha=best_alpha,
+            ensemble_size=ensemble_size,
+            seed=int(args.split_seed),
+        )
+        train_preds, train_unc = predict_linear_ensemble(train_features, best_weights, best_bias)
+        val_preds, val_unc = predict_linear_ensemble(val_features, best_weights, best_bias)
+    else:
+        best_weights, best_bias = fit_ridge_regression(train_features, train_targets, ridge_alpha=best_alpha)
+        train_preds = predict_linear(train_features, best_weights, best_bias)
+        val_preds = predict_linear(val_features, best_weights, best_bias)
+        train_unc = np.zeros((train_preds.shape[0],), dtype=np.float32)
+        val_unc = np.zeros((val_preds.shape[0],), dtype=np.float32)
 
     train_metrics = evaluate_property_metrics(train_targets, train_preds)
     val_metrics = evaluate_property_metrics(val_targets, val_preds)
+    train_calibration = regression_ece(train_targets, train_preds, train_unc, num_bins=int(args.ece_bins))
+    val_calibration = regression_ece(val_targets, val_preds, val_unc, num_bins=int(args.ece_bins))
 
     np.savez(
         checkpoint_out,
-        model_type="numpy_linear",
+        model_type=("numpy_linear_ensemble" if ensemble_size > 1 else "numpy_linear"),
         embedding_dim=np.int32(resolved_embedding_dim),
         embedding_backend=np.array(str(args.embedding_backend)),
         embedding_model_id=np.array(str(args.embedding_model_id).strip()),
@@ -162,6 +195,8 @@ def main() -> None:
             "val_count": int(val_targets.shape[0]),
             "val_ratio": float(args.val_ratio),
             "split_seed": int(args.split_seed),
+            "split_mode": str(args.split_mode),
+            "scaffold_k": int(args.scaffold_k),
             "val_index_file": (val_index_file or None),
         },
         "search_space": {"ridge_alphas": alpha_grid},
@@ -170,6 +205,7 @@ def main() -> None:
             "embedding_backend": str(args.embedding_backend),
             "embedding_model_id": str(args.embedding_model_id).strip() or None,
             "embedding_pooling": str(args.embedding_pooling),
+            "ensemble_size": int(ensemble_size),
         },
         "trials": trials,
         "best": {
@@ -177,6 +213,8 @@ def main() -> None:
             "checkpoint": str(checkpoint_out),
             "train_metrics": train_metrics,
             "val_metrics": val_metrics,
+            "train_calibration": train_calibration,
+            "val_calibration": val_calibration,
         },
     }
     report_path = output_dir / "retrain_report.json"

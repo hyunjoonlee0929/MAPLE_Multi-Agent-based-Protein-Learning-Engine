@@ -658,6 +658,10 @@ with st.sidebar:
         step=0.05,
     )
     validation_split_seed = st.number_input("Validation Split Seed", min_value=0, value=42, step=1)
+    validation_split_mode = st.selectbox("Validation Split Mode", options=["random", "scaffold"], index=0)
+    validation_scaffold_k = st.slider("Validation Scaffold K", min_value=1, max_value=6, value=3, step=1)
+    validation_ensemble_size = st.slider("Validation Ensemble Size", min_value=1, max_value=8, value=1, step=1)
+    validation_ece_bins = st.slider("Validation ECE Bins", min_value=2, max_value=30, value=10, step=1)
     validation_split_seeds_csv = st.text_input("CV Split Seeds", value="1,7,13,21,42")
     validation_ridge_alphas_csv = st.text_input("CV Ridge Alphas", value="1e-4,1e-3,1e-2,1e-1")
     validation_leaderboard_output_dir = st.text_input(
@@ -738,8 +742,17 @@ if run_active_learning_clicked:
             output_dir=al_output_dir.strip(),
             checkpoint_out=al_checkpoint_out.strip(),
             embedding_dim=int(embedding_dim),
+            embedding_backend=str(embedding_backend),
+            embedding_model_id=str(embedding_model_id or ""),
+            embedding_device=str(embedding_device),
+            embedding_pooling=str(embedding_pooling),
+            embedding_allow_mock=bool(embedding_allow_mock),
             val_ratio=float(validation_val_ratio),
             split_seed=int(al_split_seed),
+            split_mode=str(validation_split_mode),
+            scaffold_k=int(validation_scaffold_k),
+            ensemble_size=int(validation_ensemble_size),
+            ece_bins=int(validation_ece_bins),
             rounds=int(al_rounds),
             batch_size=int(al_batch_size),
             pool_size=int(al_pool_size),
@@ -770,8 +783,17 @@ if run_campaign_clicked:
             maple_iterations=int(campaign_maple_iterations),
             acquisition_batch_size=int(campaign_acquisition_batch_size),
             embedding_dim=int(embedding_dim),
+            embedding_backend=str(embedding_backend),
+            embedding_model_id=str(embedding_model_id or ""),
+            embedding_device=str(embedding_device),
+            embedding_pooling=str(embedding_pooling),
+            embedding_allow_mock=bool(embedding_allow_mock),
             val_ratio=float(validation_val_ratio),
             split_seed=int(validation_split_seed),
+            split_mode=str(validation_split_mode),
+            scaffold_k=int(validation_scaffold_k),
+            ensemble_size=int(validation_ensemble_size),
+            ece_bins=int(validation_ece_bins),
             ridge_alphas=validation_ridge_alphas_csv.strip(),
             selection_strategy=selection_strategy,
             bo_beta=float(bo_beta),
@@ -802,8 +824,17 @@ if run_dbtl_ingest_clicked:
             output_dir=dbtl_output_dir.strip(),
             checkpoint_out=dbtl_checkpoint_out.strip(),
             embedding_dim=int(embedding_dim),
+            embedding_backend=str(embedding_backend),
+            embedding_model_id=str(embedding_model_id or ""),
+            embedding_device=str(embedding_device),
+            embedding_pooling=str(embedding_pooling),
+            embedding_allow_mock=bool(embedding_allow_mock),
             val_ratio=float(validation_val_ratio),
             split_seed=int(validation_split_seed),
+            split_mode=str(validation_split_mode),
+            scaffold_k=int(validation_scaffold_k),
+            ensemble_size=int(validation_ensemble_size),
+            ece_bins=int(validation_ece_bins),
             ridge_alphas=validation_ridge_alphas_csv.strip(),
             min_imported_records=int(dbtl_min_records),
         )
@@ -826,6 +857,10 @@ if generate_validation_reports_clicked:
             checkpoints_csv=validation_checkpoints_csv.strip(),
             val_ratio=float(validation_val_ratio),
             split_seed=int(validation_split_seed),
+            split_mode=str(validation_split_mode),
+            scaffold_k=int(validation_scaffold_k),
+            ensemble_size=int(validation_ensemble_size),
+            ece_bins=int(validation_ece_bins),
             split_seeds_csv=validation_split_seeds_csv.strip(),
             ridge_alphas_csv=validation_ridge_alphas_csv.strip(),
             leaderboard_output_dir=validation_leaderboard_output_dir.strip(),

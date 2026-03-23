@@ -18,6 +18,7 @@ from core.validation import rank_by_val_rmse
 from models.embedding_model import build_embedding_model
 from models.property_model import PropertyPredictor
 from scripts.train_property_numpy import load_dataset, split_train_val
+from utils.calibration import regression_ece
 from utils.metrics import evaluate_property_metrics
 
 
@@ -37,6 +38,8 @@ def infer_embedding_dim(checkpoint_path: str, fallback_dim: int) -> int:
         weights = np.asarray(data["weights"])
         if weights.ndim == 2:
             return int(weights.shape[0])
+        if weights.ndim == 3:
+            return int(weights.shape[1])
     return int(fallback_dim)
 
 
@@ -95,17 +98,22 @@ def evaluate_checkpoint(
     predictor = PropertyPredictor(
         embedding_dim=emb_dim,
         checkpoint_path=checkpoint_path,
-        uncertainty_samples=1,
-        uncertainty_noise=0.0,
+        uncertainty_samples=5,
+        uncertainty_noise=0.02,
     )
-    preds = np.asarray(predictor.predict(features), dtype=np.float32)
+    preds, unc = predictor.predict_with_uncertainty(features)
+    preds = np.asarray(preds, dtype=np.float32)
+    unc = np.asarray(unc, dtype=np.float32)
     metrics = evaluate_property_metrics(val_targets, preds)
+    calibration = regression_ece(val_targets, preds, unc, num_bins=10)
     return {
         "checkpoint": checkpoint_path,
         "embedding_dim": int(embedder.embedding_dim),
         "embedding_backend": backend,
         "embedding_model_id": model_id,
         "val_metrics": metrics,
+        "uncertainty_mean": float(np.mean(unc)) if unc.size else 0.0,
+        "val_ece": float(calibration.get("ece", 0.0)),
     }
 
 
@@ -124,6 +132,8 @@ def export_leaderboard_csv(results: list[dict], output_csv: Path) -> None:
                 "val_mae_mean",
                 "val_r2_mean",
                 "val_pearson_mean",
+                "val_ece",
+                "uncertainty_mean",
             ],
         )
         writer.writeheader()
@@ -140,6 +150,8 @@ def export_leaderboard_csv(results: list[dict], output_csv: Path) -> None:
                     "val_mae_mean": mean["mae"],
                     "val_r2_mean": mean["r2"],
                     "val_pearson_mean": mean["pearson"],
+                    "val_ece": row.get("val_ece"),
+                    "uncertainty_mean": row.get("uncertainty_mean"),
                 }
             )
 
@@ -150,6 +162,8 @@ def main() -> None:
     parser.add_argument("--checkpoints", type=str, required=True, help="Comma-separated checkpoint paths")
     parser.add_argument("--val-ratio", type=float, default=0.2)
     parser.add_argument("--split-seed", type=int, default=42)
+    parser.add_argument("--split-mode", type=str, default="random", help="Split strategy: random|scaffold")
+    parser.add_argument("--scaffold-k", type=int, default=3, help="Scaffold key size for split_mode=scaffold")
     parser.add_argument("--embedding-dim", type=int, default=128)
     parser.add_argument("--embedding-backend", type=str, default="random")
     parser.add_argument("--embedding-device", type=str, default="cpu")
@@ -185,6 +199,8 @@ def main() -> None:
         targets,
         val_ratio=float(args.val_ratio),
         seed=int(args.split_seed),
+        split_mode=str(args.split_mode),
+        scaffold_k=int(args.scaffold_k),
     )
 
     raw_results = [
@@ -207,6 +223,8 @@ def main() -> None:
             "val_count": int(val_targets.shape[0]),
             "val_ratio": float(args.val_ratio),
             "split_seed": int(args.split_seed),
+            "split_mode": str(args.split_mode),
+            "scaffold_k": int(args.scaffold_k),
         },
         "ranked_results": ranked,
         "best": ranked[0] if ranked else None,

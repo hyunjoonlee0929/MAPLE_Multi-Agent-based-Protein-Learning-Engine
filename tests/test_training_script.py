@@ -58,3 +58,26 @@ def test_split_train_val_with_indices_respects_given_indices() -> None:
     assert val_seq == ["D", "B"]
     assert train_t.tolist() == [[3.0, 3.0], [1.0, 1.0]]
     assert val_t.tolist() == [[4.0, 4.0], [2.0, 2.0]]
+
+
+def test_scaffold_split_is_deterministic_and_disjoint() -> None:
+    sequences = ["AAAAAA", "AAAATA", "VVVVVV", "VVVVAV", "DDDDDD", "DDDDED"]
+    train_idx_1, val_idx_1 = split_indices(
+        n=len(sequences),
+        val_ratio=0.34,
+        seed=11,
+        split_mode="scaffold",
+        sequences=sequences,
+        scaffold_k=2,
+    )
+    train_idx_2, val_idx_2 = split_indices(
+        n=len(sequences),
+        val_ratio=0.34,
+        seed=11,
+        split_mode="scaffold",
+        sequences=sequences,
+        scaffold_k=2,
+    )
+    assert np.array_equal(train_idx_1, train_idx_2)
+    assert np.array_equal(val_idx_1, val_idx_2)
+    assert set(train_idx_1.tolist()).isdisjoint(set(val_idx_1.tolist()))

@@ -19,11 +19,14 @@ from core.retraining import select_best_trial
 from models.embedding_model import build_embedding_model
 from scripts.retrain_property_pipeline import parse_alpha_grid
 from scripts.train_property_numpy import (
+    fit_ridge_ensemble,
     fit_ridge_regression,
     load_dataset,
+    predict_linear_ensemble,
     predict_linear,
     split_train_val,
 )
+from utils.calibration import regression_ece
 from utils.metrics import evaluate_property_metrics
 
 
@@ -39,6 +42,8 @@ def _train_and_eval(
     embedding_pooling: str,
     embedding_allow_mock: bool,
     ridge_alphas: list[float],
+    ensemble_size: int,
+    ece_bins: int,
 ) -> tuple[np.ndarray, np.ndarray, dict]:
     embedder = build_embedding_model(
         backend=embedding_backend,
@@ -53,8 +58,18 @@ def _train_and_eval(
 
     trials = []
     for alpha in ridge_alphas:
-        w, b = fit_ridge_regression(train_x, train_targets, ridge_alpha=float(alpha))
-        val_pred = predict_linear(val_x, w, b)
+        if ensemble_size > 1:
+            w, b = fit_ridge_ensemble(
+                train_x,
+                train_targets,
+                ridge_alpha=float(alpha),
+                ensemble_size=ensemble_size,
+                seed=42,
+            )
+            val_pred, _ = predict_linear_ensemble(val_x, w, b)
+        else:
+            w, b = fit_ridge_regression(train_x, train_targets, ridge_alpha=float(alpha))
+            val_pred = predict_linear(val_x, w, b)
         val_metrics = evaluate_property_metrics(val_targets, val_pred)
         trials.append(
             {
@@ -67,15 +82,30 @@ def _train_and_eval(
 
     best = select_best_trial(trials)
     best_alpha = float(best["ridge_alpha"])
-    weights, bias = fit_ridge_regression(train_x, train_targets, ridge_alpha=best_alpha)
-
-    train_pred = predict_linear(train_x, weights, bias)
-    val_pred = predict_linear(val_x, weights, bias)
+    if ensemble_size > 1:
+        weights, bias = fit_ridge_ensemble(
+            train_x,
+            train_targets,
+            ridge_alpha=best_alpha,
+            ensemble_size=ensemble_size,
+            seed=42,
+        )
+        train_pred, train_unc = predict_linear_ensemble(train_x, weights, bias)
+        val_pred, val_unc = predict_linear_ensemble(val_x, weights, bias)
+    else:
+        weights, bias = fit_ridge_regression(train_x, train_targets, ridge_alpha=best_alpha)
+        train_pred = predict_linear(train_x, weights, bias)
+        val_pred = predict_linear(val_x, weights, bias)
+        train_unc = np.zeros((train_pred.shape[0],), dtype=np.float32)
+        val_unc = np.zeros((val_pred.shape[0],), dtype=np.float32)
     report = {
         "best_alpha": best_alpha,
         "trials": trials,
         "train_metrics": evaluate_property_metrics(train_targets, train_pred),
         "val_metrics": evaluate_property_metrics(val_targets, val_pred),
+        "train_calibration": regression_ece(train_targets, train_pred, train_unc, num_bins=int(ece_bins)),
+        "val_calibration": regression_ece(val_targets, val_pred, val_unc, num_bins=int(ece_bins)),
+        "ensemble_size": int(ensemble_size),
     }
     return weights, bias, report
 
@@ -108,6 +138,10 @@ def main() -> None:
     parser.add_argument("--disable-embedding-mock-fallback", action="store_true")
     parser.add_argument("--val-ratio", type=float, default=0.2)
     parser.add_argument("--split-seed", type=int, default=42)
+    parser.add_argument("--split-mode", type=str, default="random", help="Split strategy: random|scaffold")
+    parser.add_argument("--scaffold-k", type=int, default=3, help="Scaffold key size for split_mode=scaffold")
+    parser.add_argument("--ensemble-size", type=int, default=1)
+    parser.add_argument("--ece-bins", type=int, default=10)
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--pool-size", type=int, default=40)
@@ -137,6 +171,8 @@ def main() -> None:
         all_targets,
         val_ratio=float(args.val_ratio),
         seed=int(args.split_seed),
+        split_mode=str(args.split_mode),
+        scaffold_k=int(args.scaffold_k),
     )
 
     train_sequences = list(train_seq)
@@ -162,6 +198,8 @@ def main() -> None:
             embedding_pooling=str(args.embedding_pooling),
             embedding_allow_mock=(not args.disable_embedding_mock_fallback),
             ridge_alphas=alpha_grid,
+            ensemble_size=max(1, int(args.ensemble_size)),
+            ece_bins=int(args.ece_bins),
         )
 
         existing = set(train_sequences) | set(val_sequences)
@@ -220,7 +258,7 @@ def main() -> None:
 
     np.savez(
         checkpoint_out,
-        model_type="numpy_linear",
+        model_type=("numpy_linear_ensemble" if int(args.ensemble_size) > 1 else "numpy_linear"),
         embedding_dim=np.int32(args.embedding_dim),
         embedding_backend=np.array(str(args.embedding_backend)),
         embedding_model_id=np.array(str(args.embedding_model_id).strip()),
@@ -246,8 +284,12 @@ def main() -> None:
             "embedding_backend": str(args.embedding_backend),
             "embedding_model_id": str(args.embedding_model_id).strip() or None,
             "embedding_pooling": str(args.embedding_pooling),
+            "ensemble_size": int(max(1, int(args.ensemble_size))),
+            "ece_bins": int(args.ece_bins),
             "val_ratio": float(args.val_ratio),
             "split_seed": int(args.split_seed),
+            "split_mode": str(args.split_mode),
+            "scaffold_k": int(args.scaffold_k),
             "ridge_alphas": alpha_grid,
         },
         "rounds": rounds_report,

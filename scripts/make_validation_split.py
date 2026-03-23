@@ -19,6 +19,8 @@ def main() -> None:
     parser.add_argument("--data", type=str, default="data/sample_property_labels.csv")
     parser.add_argument("--val-ratio", type=float, default=0.2)
     parser.add_argument("--split-seed", type=int, default=42)
+    parser.add_argument("--split-mode", type=str, default="random", help="Split strategy: random|scaffold")
+    parser.add_argument("--scaffold-k", type=int, default=3, help="Scaffold key size for split_mode=scaffold")
     parser.add_argument(
         "--output",
         type=str,
@@ -40,6 +42,9 @@ def main() -> None:
         n=len(sequences),
         val_ratio=float(args.val_ratio),
         seed=int(args.split_seed),
+        split_mode=str(args.split_mode),
+        sequences=sequences,
+        scaffold_k=int(args.scaffold_k),
     )
 
     payload = {
@@ -47,6 +52,8 @@ def main() -> None:
         "num_samples": len(sequences),
         "val_ratio": float(args.val_ratio),
         "split_seed": int(args.split_seed),
+        "split_mode": str(args.split_mode),
+        "scaffold_k": int(args.scaffold_k),
         "train_indices": train_idx.astype(int).tolist(),
         "val_indices": val_idx.astype(int).tolist(),
     }

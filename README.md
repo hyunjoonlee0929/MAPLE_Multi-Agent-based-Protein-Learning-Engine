@@ -203,9 +203,11 @@ python3 scripts/train_property_numpy.py \
 ```
 
 The training pipeline now performs:
-- train/validation split
+- train/validation split (`--split-mode random|scaffold`)
 - ridge-regression fitting on train split
+- optional bootstrap ensemble (`--ensemble-size > 1`)
 - validation metric reporting (`RMSE`, `MAE`, `R2`, `Pearson`) for stability/activity and mean
+- uncertainty calibration summary (`val_calibration.ece`)
 - metrics artifact export as JSON
 
 ### 2-1) Retraining Pipeline (validation-driven model selection)
@@ -214,6 +216,8 @@ cd MAPLE
 python3 scripts/retrain_property_pipeline.py \
   --data data/sample_property_labels.csv \
   --embedding-backend esm2 \
+  --split-mode scaffold \
+  --ensemble-size 5 \
   --ridge-alphas "1e-4,1e-3,1e-2,1e-1" \
   --checkpoint-out checkpoints/property_linear_best.npz \
   --output-dir outputs/property_retrain
