@@ -237,6 +237,9 @@ The Streamlit UI also supports entering the checkpoint path in the sidebar.
 - One-click execution of optimization loop
 - Live run summary with best sequence and score
 - Iteration trend chart and ranked candidate table
+- Validation report panel for:
+  - checkpoint leaderboard (`validation_leaderboard.json`)
+  - cross-seed reproducibility (`property_cv_report.json`)
 - Downloadable artifacts (`history.json`, `summary.json`)
 
 ## Key Files

@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from core.validation import cv_run_rows, leaderboard_rows
 from main import load_config, run_maple
 
 
@@ -74,6 +75,52 @@ def _safe_float(value, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _load_json_if_exists(path_text: str) -> dict | None:
+    candidate = Path(path_text).expanduser()
+    if not candidate.is_absolute():
+        candidate = ROOT / candidate
+    if not candidate.exists():
+        return None
+    try:
+        return json.loads(candidate.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _render_validation_reports(leaderboard_path_text: str, cv_report_path_text: str) -> None:
+    st.subheader("Property Validation Reports")
+
+    leaderboard_payload = _load_json_if_exists(leaderboard_path_text)
+    cv_payload = _load_json_if_exists(cv_report_path_text)
+
+    if leaderboard_payload is None and cv_payload is None:
+        st.info("Validation report files not found yet. Run retraining/validation scripts first.")
+        return
+
+    if leaderboard_payload is not None:
+        st.caption("Checkpoint validation leaderboard")
+        lb_rows = leaderboard_rows(leaderboard_payload)
+        lb_df = pd.DataFrame(lb_rows)
+        if not lb_df.empty:
+            c1, c2 = st.columns(2)
+            c1.metric("Best Checkpoint", str(lb_df.iloc[0]["checkpoint"]))
+            c2.metric("Best Val RMSE", f"{float(lb_df.iloc[0]['val_rmse_mean']):.4f}")
+            st.dataframe(lb_df, use_container_width=True)
+
+    if cv_payload is not None:
+        st.caption("Cross-seed reproducibility")
+        summary = cv_payload.get("summary", {})
+        rmse_summary = summary.get("val_mean_rmse", {})
+        c1, c2 = st.columns(2)
+        c1.metric("CV Val RMSE Mean", f"{_safe_float(rmse_summary.get('mean'), 0.0):.4f}")
+        c2.metric("CV Val RMSE Std", f"{_safe_float(rmse_summary.get('std'), 0.0):.4f}")
+
+        cv_df = pd.DataFrame(cv_run_rows(cv_payload))
+        if not cv_df.empty:
+            st.line_chart(cv_df.set_index("split_seed")[["val_rmse_mean", "val_mae_mean"]])
+            st.dataframe(cv_df, use_container_width=True)
 
 
 with st.sidebar:
@@ -224,6 +271,18 @@ with st.sidebar:
         "Property Checkpoint (.npz or .pt)",
         value=str(model.get("property_checkpoint", "")),
         help="Optional path to trained property model checkpoint.",
+    )
+
+    st.subheader("Validation Report Paths")
+    leaderboard_report_path = st.text_input(
+        "Leaderboard JSON",
+        value="outputs/property_validation/validation_leaderboard.json",
+        help="Path to validation_leaderboard.json",
+    )
+    cv_report_path = st.text_input(
+        "CV Report JSON",
+        value="outputs/property_cv/property_cv_report.json",
+        help="Path to property_cv_report.json",
     )
 
     run_clicked = st.button("Run MAPLE", type="primary", use_container_width=True)
@@ -388,3 +447,9 @@ if run_clicked:
     st.code(json.dumps(resolved, indent=2))
 else:
     st.info("Configure parameters in the sidebar, then click 'Run MAPLE'.")
+
+st.divider()
+_render_validation_reports(
+    leaderboard_path_text=leaderboard_report_path,
+    cv_report_path_text=cv_report_path,
+)
