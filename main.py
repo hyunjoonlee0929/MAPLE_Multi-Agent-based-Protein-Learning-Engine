@@ -150,6 +150,10 @@ def run_maple(
     structure_backend = str(_pick("structure_backend", model_cfg.get("structure_backend", "dummy")))
     uncertainty_samples = int(_pick("uncertainty_samples", model_cfg.get("uncertainty_samples", 5)))
     uncertainty_noise = float(_pick("uncertainty_noise", model_cfg.get("uncertainty_noise", 0.02)))
+    structure_options = {
+        "esmfold_command": _pick("esmfold_command", model_cfg.get("esmfold_command")),
+        "alphafold2_command": _pick("alphafold2_command", model_cfg.get("alphafold2_command")),
+    }
 
     state = create_initial_state(seed_sequence)
     state["config"] = runtime_cfg
@@ -158,7 +162,7 @@ def run_maple(
         config=PipelineConfig(num_iterations=num_iterations),
         planner_agent=PlannerAgent(),
         sequence_agent=SequenceAgent(random_seed=seed + 11),
-        structure_agent=StructureAgent(backend=structure_backend),
+        structure_agent=StructureAgent(backend=structure_backend, options=structure_options),
         property_agent=PropertyAgent(
             embedding_dim=embedding_dim,
             property_checkpoint=property_checkpoint,
@@ -214,6 +218,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--uncertainty-samples", type=int, default=None, help="MC sample count")
     parser.add_argument("--uncertainty-noise", type=float, default=None, help="Input noise std")
     parser.add_argument("--structure-backend", type=str, default=None, help="Structure backend")
+    parser.add_argument("--esmfold-command", type=str, default=None, help="Optional external ESMFold command")
+    parser.add_argument("--alphafold2-command", type=str, default=None, help="Optional external AlphaFold2 command")
     parser.add_argument("--output-dir", type=str, default="outputs", help="Artifact directory")
 
     return parser.parse_args()
@@ -248,6 +254,8 @@ def main() -> None:
         "uncertainty_samples": args.uncertainty_samples,
         "uncertainty_noise": args.uncertainty_noise,
         "structure_backend": args.structure_backend,
+        "esmfold_command": args.esmfold_command,
+        "alphafold2_command": args.alphafold2_command,
     }
 
     final_state, resolved, output_dir = run_maple(

@@ -100,6 +100,16 @@ with st.sidebar:
         options=["dummy", "esmfold", "alphafold2"],
         index=["dummy", "esmfold", "alphafold2"].index(model.get("structure_backend", "dummy")),
     )
+    esmfold_command = st.text_input(
+        "ESMFold External Command (Optional)",
+        value=str(model.get("esmfold_command", "")),
+        help="Use placeholders {sequence_file} and {output_file}. If empty, adapter mock is used.",
+    )
+    alphafold2_command = st.text_input(
+        "AlphaFold2 External Command (Optional)",
+        value=str(model.get("alphafold2_command", "")),
+        help="Use placeholders {sequence_file} and {output_file}. If empty, adapter mock is used.",
+    )
     embedding_dim = st.slider("Embedding Dim", min_value=8, max_value=1024, value=int(model.get("embedding_dim", 128)), step=8)
     uncertainty_samples = st.slider("Uncertainty Samples", min_value=1, max_value=20, value=int(model.get("uncertainty_samples", 5)))
     uncertainty_noise = st.slider("Uncertainty Noise", min_value=0.0, max_value=0.2, value=float(model.get("uncertainty_noise", 0.02)), step=0.005)
@@ -112,10 +122,6 @@ with st.sidebar:
     run_clicked = st.button("Run MAPLE", type="primary", use_container_width=True)
 
 if run_clicked:
-    if structure_backend != "dummy":
-        st.error("MVP supports only 'dummy' backend at runtime. Select dummy or implement adapter backend.")
-        st.stop()
-
     overrides = {
         "seed": int(seed),
         "seed_sequence": seed_sequence.strip(),
@@ -129,6 +135,8 @@ if run_clicked:
         "w_activity": float(w_activity),
         "w_uncertainty": float(w_uncertainty),
         "structure_backend": structure_backend,
+        "esmfold_command": esmfold_command.strip() or None,
+        "alphafold2_command": alphafold2_command.strip() or None,
         "embedding_dim": int(embedding_dim),
         "property_checkpoint": property_checkpoint.strip() or None,
         "uncertainty_samples": int(uncertainty_samples),
@@ -149,11 +157,21 @@ if run_clicked:
     best_seq = final_state["sequences"][0] if final_state.get("sequences") else None
     best_score = float(final_state["scores"][0]) if final_state.get("scores") else None
 
+    structure_mode = None
+    if final_state.get("structures"):
+        structure_mode = final_state["structures"][0].get("mode")
+
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Iterations", resolved["num_iterations"])
     col2.metric("Best Score", f"{best_score:.4f}" if best_score is not None else "N/A")
     col3.metric("Candidates", len(final_state.get("sequences", [])))
-    col4.metric("Seed", resolved["seed"])
+    col4.metric("Structure Mode", structure_mode or "N/A")
+
+    if structure_mode == "mock" and structure_backend in {"esmfold", "alphafold2"}:
+        st.warning(
+            f"{structure_backend} adapter is running in mock mode. "
+            "Provide a valid external command to switch to external mode."
+        )
 
     st.subheader("Top Sequence")
     st.code(best_seq or "N/A")
@@ -170,6 +188,7 @@ if run_clicked:
     records = []
     for i, seq in enumerate(final_state.get("sequences", [])[:20]):
         prop = final_state.get("properties", [])[i]
+        structure = final_state.get("structures", [])[i] if i < len(final_state.get("structures", [])) else {}
         records.append(
             {
                 "rank": i + 1,
@@ -178,6 +197,9 @@ if run_clicked:
                 "stability": prop.get("stability"),
                 "activity": prop.get("activity"),
                 "uncertainty": prop.get("uncertainty"),
+                "structure_backend": structure.get("backend"),
+                "structure_mode": structure.get("mode"),
+                "structure_confidence": structure.get("confidence"),
             }
         )
     st.dataframe(pd.DataFrame(records), use_container_width=True)

@@ -50,6 +50,23 @@ def test_structure_predictor_builder_for_dummy_backend() -> None:
     predictor = build_structure_predictor("dummy")
     out = predictor.predict("MKTFFV")
     assert out["backend"] == "dummy_structure_predictor"
+    assert out["mode"] == "mock"
+
+
+
+def test_structure_predictor_builder_for_esmfold_backend() -> None:
+    predictor = build_structure_predictor("esmfold")
+    out = predictor.predict("MKTFFV")
+    assert out["backend"] == "esmfold_adapter"
+    assert out["mode"] in {"mock", "external"}
+
+
+
+def test_structure_predictor_builder_for_alphafold2_backend() -> None:
+    predictor = build_structure_predictor("alphafold2")
+    out = predictor.predict("MKTFFV")
+    assert out["backend"] == "alphafold2_adapter"
+    assert out["mode"] in {"mock", "external"}
 
 
 

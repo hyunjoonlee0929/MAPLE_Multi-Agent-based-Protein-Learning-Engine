@@ -18,6 +18,8 @@ runtime:
 model:
   embedding_dim: 128
   structure_backend: "dummy"
+  esmfold_command: ""
+  alphafold2_command: ""
   property_checkpoint: ""
   uncertainty_samples: 5
   uncertainty_noise: 0.02

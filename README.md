@@ -5,7 +5,7 @@ MAPLE is a multi-agent system that autonomously explores protein sequence space 
 ## Core Scope
 - Multi-agent loop: planner -> sequence -> structure -> property -> optimization -> evaluation
 - Random mutation-based sequence exploration
-- Dummy structure backend interface (future AlphaFold2/ESMFold compatible)
+- Structure adapters: `dummy`, `esmfold`, `alphafold2` (mock mode by default, external tool mode optional)
 - Embedding + property prediction with uncertainty-aware scoring
 - Diversity-aware evolutionary optimization
 - Iteration artifact export (JSON/CSV)
@@ -27,6 +27,20 @@ python3 main.py --num-iterations 5 --selection-strategy diverse --min-hamming-di
 cd /Users/hyunjoon/codex/MAPLE
 streamlit run app.py
 ```
+
+## Structure Backend Adapters
+MAPLE now supports `--structure-backend dummy|esmfold|alphafold2` at runtime.
+
+- `dummy`: deterministic mock structure output
+- `esmfold` / `alphafold2`: adapter backends
+  - Default: mock mode (no external dependency required)
+  - Optional: external command mode via:
+    - `--esmfold-command`
+    - `--alphafold2-command`
+
+Command placeholders:
+- `{sequence_file}`: path to input sequence text file
+- `{output_file}`: path where your external tool should write JSON/text output
 
 ## Upgrade Step: Labeled Property Model
 You can train a lightweight labeled surrogate model (stability/activity) and plug it into MAPLE.
