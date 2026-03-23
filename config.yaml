@@ -38,11 +38,12 @@ runtime:
 
 model:
   embedding_dim: 128
-  structure_backend: "dummy"
+  structure_backend: "esmfold"
   esmfold_command: "python3 scripts/run_esmfold_adapter.py --sequence-file {sequence_file} --output-file {output_file} --allow-mock"
   alphafold2_command: ""
   structure_timeout_sec: 120
   structure_retries: 1
+  structure_strict: false
   structure_batch_size: 16
   property_checkpoint: ""
   uncertainty_samples: 5

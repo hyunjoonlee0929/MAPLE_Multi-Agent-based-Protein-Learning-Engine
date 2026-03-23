@@ -31,6 +31,7 @@ streamlit run app.py
 
 ## Real Structure Adapter Integration
 MAPLE now supports runtime structure adapter execution for `esmfold` and `alphafold2`.
+Default runtime path in `config.yaml` is now `structure_backend: "esmfold"` with adapter fallback enabled.
 
 ### ESMFold adapter command (included)
 Default command in `config.yaml`:
@@ -40,6 +41,7 @@ python3 scripts/run_esmfold_adapter.py --sequence-file {sequence_file} --output-
 
 - If transformers/weights are available: real ESMFold inference result is written.
 - If unavailable and `--allow-mock` is set: adapter emits mock JSON and pipeline continues.
+- To enforce strict runtime behavior, set `model.structure_strict: true` (or CLI `--structure-strict`) so adapter failures stop the run.
 
 ### Run with ESMFold backend
 ```bash
@@ -60,7 +62,8 @@ Your external backend command must:
 Recommended JSON keys:
 - `confidence` (float)
 - `engine` (string)
-- optional: `model_id`, `pdb_path`, `pae_mean`, `ptm`, `plddt_mean`, `runtime_sec`, `note`
+- standardized output fields: `plddt_mean`, `ptm`, `pae_mean`, `pdb_path`
+- optional: `model_id`, `runtime_sec`, `note`
 
 ## Scoring Upgrade
 Evaluation score now combines:
@@ -337,6 +340,9 @@ python3 main.py \
 The Streamlit UI also supports entering the checkpoint path in the sidebar.
 
 ## UI Features
+- `Simple` / `Advanced` parameter mode switch in sidebar
+- `Quick Profile` presets (`fast_demo`, `balanced_research`, `structure_priority`)
+- Inline parameter guide for key optimization/model knobs
 - Sidebar controls for runtime/model/scoring parameters
 - One-click execution of optimization loop
 - Live run summary with best sequence and score

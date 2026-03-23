@@ -15,13 +15,21 @@ class EvaluationAgent:
         aa_set = set(AMINO_ACIDS)
         return all(char in aa_set for char in sequence)
 
+    def _safe_float(self, value, default: float = 0.0) -> float:
+        try:
+            if value is None:
+                return float(default)
+            return float(value)
+        except (TypeError, ValueError):
+            return float(default)
+
     def _structure_signals(self, structure: dict) -> tuple[float, float, float, float]:
-        confidence = float(structure.get("confidence", 0.0))
+        confidence = self._safe_float(structure.get("confidence"), 0.0)
 
         # Fallbacks keep pipeline robust even when some structure metrics are missing.
-        plddt_mean = float(structure.get("plddt_mean", confidence * 100.0))
-        ptm = float(structure.get("ptm", confidence))
-        pae_mean = float(structure.get("pae_mean", max(0.0, (1.0 - confidence) * 30.0)))
+        plddt_mean = self._safe_float(structure.get("plddt_mean"), confidence * 100.0)
+        ptm = self._safe_float(structure.get("ptm"), confidence)
+        pae_mean = self._safe_float(structure.get("pae_mean"), max(0.0, (1.0 - confidence) * 30.0))
 
         return confidence, plddt_mean, ptm, pae_mean
 
@@ -111,10 +119,10 @@ class EvaluationAgent:
                 "best_sequence": state["sequences"][0],
                 "best_score": state["scores"][0],
                 "best_uncertainty": float(state["properties"][0].get("uncertainty", 0.0)),
-                "best_structure_confidence": float(best_structure.get("confidence", 0.0)),
-                "best_plddt_mean": float(best_structure.get("plddt_mean", 0.0)),
-                "best_ptm": float(best_structure.get("ptm", 0.0)),
-                "best_pae_mean": float(best_structure.get("pae_mean", 0.0)),
+                "best_structure_confidence": self._safe_float(best_structure.get("confidence"), 0.0),
+                "best_plddt_mean": self._safe_float(best_structure.get("plddt_mean"), 0.0),
+                "best_ptm": self._safe_float(best_structure.get("ptm"), 0.0),
+                "best_pae_mean": self._safe_float(best_structure.get("pae_mean"), 0.0),
                 "mean_score": float(sum(state["scores"]) / len(state["scores"])),
                 "num_candidates": len(state["sequences"]),
             }

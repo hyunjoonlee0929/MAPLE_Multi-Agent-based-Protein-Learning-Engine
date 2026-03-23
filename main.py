@@ -174,6 +174,7 @@ def run_maple(
         "alphafold2_command": _pick("alphafold2_command", model_cfg.get("alphafold2_command")),
         "structure_timeout_sec": _pick("structure_timeout_sec", model_cfg.get("structure_timeout_sec", 60)),
         "structure_retries": _pick("structure_retries", model_cfg.get("structure_retries", 0)),
+        "structure_strict": _pick("structure_strict", model_cfg.get("structure_strict", False)),
     }
     structure_batch_size = int(_pick("structure_batch_size", model_cfg.get("structure_batch_size", 16)))
     validation_leaderboard_path = _pick("validation_leaderboard_path", None)
@@ -231,6 +232,7 @@ def run_maple(
         "seed": seed,
         "num_iterations": num_iterations,
         "structure_backend": structure_backend,
+        "structure_strict": bool(structure_options.get("structure_strict", False)),
         "selection_strategy": runtime_cfg.get("selection_strategy", "elitist"),
         "output_dir": str(resolved_output_dir),
         "validation_linked": bool(validation_metadata),
@@ -284,6 +286,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--alphafold2-command", type=str, default=None, help="Optional external AlphaFold2 command")
     parser.add_argument("--structure-timeout-sec", type=int, default=None, help="Timeout per structure external call")
     parser.add_argument("--structure-retries", type=int, default=None, help="Retry count for structure external calls")
+    parser.add_argument("--structure-strict", action="store_true", help="Fail run if external structure adapter fails")
     parser.add_argument("--structure-batch-size", type=int, default=None, help="Batch size for structure prediction loop")
     parser.add_argument("--validation-leaderboard-path", type=str, default=None, help="Optional validation_leaderboard.json path")
     parser.add_argument("--validation-cv-report-path", type=str, default=None, help="Optional property_cv_report.json path")
@@ -343,6 +346,7 @@ def main() -> None:
         "alphafold2_command": args.alphafold2_command,
         "structure_timeout_sec": args.structure_timeout_sec,
         "structure_retries": args.structure_retries,
+        "structure_strict": (None if not args.structure_strict else True),
         "structure_batch_size": args.structure_batch_size,
         "validation_leaderboard_path": args.validation_leaderboard_path,
         "validation_cv_report_path": args.validation_cv_report_path,

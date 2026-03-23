@@ -15,6 +15,9 @@ def _mock_payload(sequence: str, model_id: str, note: str) -> dict:
         "model_id": model_id,
         "confidence": 0.5,
         "plddt_mean": 50.0,
+        "ptm": None,
+        "pae_mean": None,
+        "pdb_path": None,
         "runtime_sec": 0.0,
         "note": note,
         "sequence_length": len(sequence),
@@ -36,9 +39,15 @@ def run_real_esmfold(sequence: str, model_id: str) -> dict:
         outputs = model(**tokens)
 
     plddt_mean = None
+    ptm = None
+    pae_mean = None
     if hasattr(outputs, "plddt"):
         plddt = outputs.plddt
         plddt_mean = float(plddt.mean().detach().cpu().item())
+    if hasattr(outputs, "ptm") and outputs.ptm is not None:
+        ptm = float(outputs.ptm.mean().detach().cpu().item())
+    if hasattr(outputs, "predicted_aligned_error") and outputs.predicted_aligned_error is not None:
+        pae_mean = float(outputs.predicted_aligned_error.mean().detach().cpu().item())
 
     runtime_sec = round(time.time() - started, 4)
     confidence = (plddt_mean / 100.0) if plddt_mean is not None else 0.5
@@ -47,12 +56,13 @@ def run_real_esmfold(sequence: str, model_id: str) -> dict:
         "engine": "transformers_esmfold",
         "model_id": model_id,
         "confidence": float(confidence),
+        "plddt_mean": plddt_mean,
+        "ptm": ptm,
+        "pae_mean": pae_mean,
+        "pdb_path": None,
         "runtime_sec": runtime_sec,
         "sequence_length": len(sequence),
     }
-    if plddt_mean is not None:
-        payload["plddt_mean"] = float(plddt_mean)
-
     return payload
 
 

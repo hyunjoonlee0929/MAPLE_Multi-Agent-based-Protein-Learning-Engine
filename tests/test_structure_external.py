@@ -27,6 +27,10 @@ def test_esmfold_external_command_mode() -> None:
     assert out["mode"] == "external"
     assert abs(float(out["confidence"]) - 0.91) < 1e-8
     assert out["engine"] == "test_esm"
+    assert "plddt_mean" in out
+    assert "ptm" in out
+    assert "pae_mean" in out
+    assert "pdb_path" in out
 
 
 
@@ -51,3 +55,20 @@ def test_alphafold_external_command_mode() -> None:
     assert out["mode"] == "external"
     assert abs(float(out["confidence"]) - 0.77) < 1e-8
     assert out["engine"] == "test_af2"
+
+
+def test_esmfold_strict_raises_when_command_missing() -> None:
+    predictor = build_structure_predictor(
+        "esmfold",
+        options={
+            "esmfold_command": "",
+            "structure_strict": True,
+        },
+    )
+    try:
+        predictor.predict("MKTFFV")
+        raised = False
+    except RuntimeError as exc:
+        raised = True
+        assert "not configured" in str(exc)
+    assert raised is True

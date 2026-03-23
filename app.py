@@ -85,6 +85,45 @@ def _safe_float(value, default: float) -> float:
         return default
 
 
+def _quick_profile_defaults(name: str) -> dict:
+    profiles = {
+        "fast_demo": {
+            "num_iterations": 3,
+            "num_candidates": 8,
+            "top_k": 3,
+            "mutation_rate": 1,
+            "selection_strategy": "diverse",
+            "scoring_preset": "balanced",
+            "structure_backend": "esmfold",
+            "structure_strict": False,
+            "constraint_enabled": False,
+        },
+        "balanced_research": {
+            "num_iterations": 8,
+            "num_candidates": 16,
+            "top_k": 4,
+            "mutation_rate": 2,
+            "selection_strategy": "pareto",
+            "scoring_preset": "balanced",
+            "structure_backend": "esmfold",
+            "structure_strict": False,
+            "constraint_enabled": True,
+        },
+        "structure_priority": {
+            "num_iterations": 8,
+            "num_candidates": 16,
+            "top_k": 4,
+            "mutation_rate": 2,
+            "selection_strategy": "pareto_bo",
+            "scoring_preset": "structure_first",
+            "structure_backend": "esmfold",
+            "structure_strict": True,
+            "constraint_enabled": True,
+        },
+    }
+    return dict(profiles.get(name, profiles["balanced_research"]))
+
+
 def _load_json_if_exists(path_text: str) -> dict | None:
     candidate = Path(path_text).expanduser()
     if not candidate.is_absolute():
@@ -204,31 +243,107 @@ def _render_dbtl_report(dbtl_report_path_text: str) -> None:
 
 with st.sidebar:
     st.header("Run Controls")
-    seed_sequence = st.text_input("Seed Sequence", value=cfg.get("seed_sequence", ""))
-    seed = st.number_input("Global Seed", min_value=0, value=int(cfg.get("seed", 42)), step=1)
-    num_iterations = st.slider("Iterations", min_value=1, max_value=100, value=int(cfg.get("num_iterations", 5)))
+    ui_mode = st.radio(
+        "Parameter Mode",
+        options=["Simple", "Advanced"],
+        index=0,
+        help="Simple mode exposes only core controls. Advanced mode exposes all tunables.",
+    )
+    profile_name = st.selectbox(
+        "Quick Profile",
+        options=["fast_demo", "balanced_research", "structure_priority"],
+        index=1,
+        help="Load recommended starting defaults for common goals.",
+    )
+
+    runtime = dict(cfg.get("runtime", {}))
+    model = dict(cfg.get("model", {}))
+    profile = _quick_profile_defaults(profile_name)
+    defaults = {
+        "num_iterations": int(profile.get("num_iterations", cfg.get("num_iterations", 5))),
+        "num_candidates": int(profile.get("num_candidates", runtime.get("num_candidates", 10))),
+        "top_k": int(profile.get("top_k", runtime.get("top_k", 3))),
+        "mutation_rate": int(profile.get("mutation_rate", runtime.get("mutation_rate", 1))),
+        "selection_strategy": str(profile.get("selection_strategy", runtime.get("selection_strategy", "diverse"))),
+        "scoring_preset": str(profile.get("scoring_preset", runtime.get("scoring_preset", "balanced"))),
+        "structure_backend": str(profile.get("structure_backend", model.get("structure_backend", "esmfold"))),
+        "structure_strict": bool(profile.get("structure_strict", model.get("structure_strict", False))),
+        "constraint_enabled": bool(profile.get("constraint_enabled", runtime.get("constraint_enabled", False))),
+    }
+
+    with st.expander("Parameter Guide", expanded=False):
+        st.markdown(
+            """
+            - `num_candidates`: each iteration candidate pool size.
+            - `top_k`: elite sequences retained before mutation.
+            - `mutation_rate`: number of residue substitutions per generated child.
+            - `selection_strategy`: `diverse`, `elitist`, `pareto`, `pareto_bo`.
+            - `structure_backend`: `esmfold` recommended for real structure path.
+            - `structure_strict`: if enabled, fail run when external structure call fails.
+            - `constraint_enabled`: enforce feasibility thresholds before elite selection.
+            """
+        )
+
+    seed_sequence = st.text_input(
+        "Seed Sequence",
+        value=cfg.get("seed_sequence", ""),
+        help="Initial protein sequence used to start iterative optimization.",
+    )
+    seed = st.number_input(
+        "Global Seed",
+        min_value=0,
+        value=int(cfg.get("seed", 42)),
+        step=1,
+        help="Controls reproducibility for sequence generation and ranking.",
+    )
+    num_iterations = st.slider(
+        "Iterations",
+        min_value=1,
+        max_value=100,
+        value=defaults["num_iterations"],
+        help="Number of planner->...->evaluation loop cycles.",
+    )
 
     st.subheader("Candidate Generation")
-    runtime = dict(cfg.get("runtime", {}))
-    num_candidates = st.slider("Candidates / Iter", min_value=2, max_value=100, value=int(runtime.get("num_candidates", 10)))
-    top_k = st.slider("Top-K Elites", min_value=1, max_value=20, value=int(runtime.get("top_k", 3)))
-    mutation_rate = st.slider("Mutation Rate", min_value=1, max_value=10, value=int(runtime.get("mutation_rate", 1)))
+    num_candidates = st.slider(
+        "Candidates / Iter",
+        min_value=2,
+        max_value=100,
+        value=defaults["num_candidates"],
+        help="How many candidate sequences are evaluated per iteration.",
+    )
+    top_k = st.slider(
+        "Top-K Elites",
+        min_value=1,
+        max_value=20,
+        value=defaults["top_k"],
+        help="Top-ranked parents used to generate next iteration.",
+    )
+    mutation_rate = st.slider(
+        "Mutation Rate",
+        min_value=1,
+        max_value=10,
+        value=defaults["mutation_rate"],
+        help="Number of amino acid edits per mutation step.",
+    )
     selection_strategy = st.selectbox(
         "Selection Strategy",
         options=["diverse", "elitist", "pareto", "pareto_bo"],
         index=["diverse", "elitist", "pareto", "pareto_bo"].index(
-            str(runtime.get("selection_strategy", "diverse"))
-            if str(runtime.get("selection_strategy", "diverse")) in {"diverse", "elitist", "pareto", "pareto_bo"}
+            defaults["selection_strategy"]
+            if defaults["selection_strategy"] in {"diverse", "elitist", "pareto", "pareto_bo"}
             else "diverse"
         ),
+        help="`pareto`/`pareto_bo` are preferred for multi-objective optimization.",
     )
     bo_beta = st.slider(
         "BO Beta (pareto_bo)",
         min_value=0.0,
         max_value=2.0,
-        value=float(runtime.get("bo_beta", 0.30)),
+        value=_safe_float(runtime.get("bo_beta", 0.30), 0.30),
         step=0.05,
         disabled=selection_strategy != "pareto_bo",
+        help="Higher values increase novelty/exploration in BO acquisition.",
     )
     bo_trials_per_parent = st.slider(
         "BO Trials / Parent",
@@ -237,48 +352,66 @@ with st.sidebar:
         value=int(runtime.get("bo_trials_per_parent", 8)),
         step=1,
         disabled=selection_strategy != "pareto_bo",
+        help="Mutation trials generated per parent before acquisition ranking.",
     )
     scoring_preset = st.selectbox(
         "Scoring Preset",
         options=["balanced", "exploration", "structure_first", "activity_first"],
         index=["balanced", "exploration", "structure_first", "activity_first"].index(
-            str(runtime.get("scoring_preset", "balanced"))
-            if str(runtime.get("scoring_preset", "balanced")) in {"balanced", "exploration", "structure_first", "activity_first"}
+            defaults["scoring_preset"]
+            if defaults["scoring_preset"] in {"balanced", "exploration", "structure_first", "activity_first"}
             else "balanced"
         ),
+        help="Applies predefined score-weight priorities.",
     )
-    use_weight_preset = st.checkbox("Use Weight Preset", value=bool(runtime.get("use_weight_preset", True)))
+    use_weight_preset = st.checkbox(
+        "Use Weight Preset",
+        value=bool(runtime.get("use_weight_preset", True)),
+        help="When enabled, selected preset can overwrite raw score weights.",
+    )
     normalize_score_weights = st.checkbox(
         "Normalize Score Weights",
         value=bool(runtime.get("normalize_score_weights", True)),
+        help="Rescales all weights so total equals 1.",
     )
     min_hamming_distance = st.slider(
         "Min Hamming Distance",
         min_value=0,
         max_value=10,
         value=int(runtime.get("min_hamming_distance", 2)),
+        help="Diversity threshold between selected elites.",
     )
-    constraint_enabled = st.checkbox("Enable Constraints", value=bool(runtime.get("constraint_enabled", False)))
+
+    constraint_enabled = defaults["constraint_enabled"]
+    if ui_mode == "Advanced":
+        constraint_enabled = st.checkbox(
+            "Enable Constraints",
+            value=bool(defaults["constraint_enabled"]),
+            help="Filter or penalize candidates that fail feasibility thresholds.",
+        )
     constraint_mode = st.selectbox(
         "Constraint Mode",
         options=["hard", "soft"],
         index=0 if str(runtime.get("constraint_mode", "hard")).lower() == "hard" else 1,
-        disabled=not constraint_enabled,
+        disabled=(ui_mode != "Advanced") or (not constraint_enabled),
+        help="`hard`: remove infeasible; `soft`: keep with score penalty.",
     )
     constraint_penalty = st.slider(
         "Constraint Penalty (soft mode)",
         min_value=0.0,
         max_value=2.0,
-        value=float(runtime.get("constraint_penalty", 0.20)),
+        value=_safe_float(runtime.get("constraint_penalty", 0.20), 0.20),
         step=0.01,
-        disabled=not constraint_enabled or constraint_mode != "soft",
+        disabled=(ui_mode != "Advanced") or (not constraint_enabled) or constraint_mode != "soft",
     )
+    constraint_enabled_effective = bool(constraint_enabled) if ui_mode == "Advanced" else False
     min_stability = st.slider(
         "Min Stability",
         min_value=-5.0,
         max_value=5.0,
         value=_safe_float(runtime.get("min_stability", -5.0), -5.0),
         step=0.05,
+        disabled=(ui_mode != "Advanced") or (not constraint_enabled_effective),
     )
     min_activity = st.slider(
         "Min Activity",
@@ -286,6 +419,7 @@ with st.sidebar:
         max_value=5.0,
         value=_safe_float(runtime.get("min_activity", -5.0), -5.0),
         step=0.05,
+        disabled=(ui_mode != "Advanced") or (not constraint_enabled_effective),
     )
     min_structure_confidence = st.slider(
         "Min Structure Confidence",
@@ -293,6 +427,7 @@ with st.sidebar:
         max_value=1.0,
         value=_safe_float(runtime.get("min_structure_confidence", 0.0), 0.0),
         step=0.01,
+        disabled=(ui_mode != "Advanced") or (not constraint_enabled_effective),
     )
     min_plddt = st.slider(
         "Min pLDDT",
@@ -300,6 +435,7 @@ with st.sidebar:
         max_value=100.0,
         value=_safe_float(runtime.get("min_plddt", 0.0), 0.0),
         step=1.0,
+        disabled=(ui_mode != "Advanced") or (not constraint_enabled_effective),
     )
     min_ptm = st.slider(
         "Min pTM",
@@ -307,6 +443,7 @@ with st.sidebar:
         max_value=1.0,
         value=_safe_float(runtime.get("min_ptm", 0.0), 0.0),
         step=0.01,
+        disabled=(ui_mode != "Advanced") or (not constraint_enabled_effective),
     )
     max_pae = st.slider(
         "Max PAE",
@@ -314,23 +451,81 @@ with st.sidebar:
         max_value=50.0,
         value=_safe_float(runtime.get("max_pae", 50.0), 50.0),
         step=0.5,
+        disabled=(ui_mode != "Advanced") or (not constraint_enabled_effective),
     )
 
     st.subheader("Scoring Weights")
-    w_stability = st.slider("Stability Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_stability", 0.40)), step=0.01)
-    w_activity = st.slider("Activity Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_activity", 0.40)), step=0.01)
-    w_uncertainty = st.slider("Uncertainty Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_uncertainty", 0.10)), step=0.01)
-    w_structure = st.slider("Structure Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_structure", 0.10)), step=0.01)
-    w_plddt = st.slider("pLDDT Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_plddt", 0.05)), step=0.01)
-    w_ptm = st.slider("pTM Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_ptm", 0.03)), step=0.01)
-    w_pae = st.slider("PAE(inv) Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_pae", 0.02)), step=0.01)
+    w_stability = st.slider(
+        "Stability Weight",
+        min_value=0.0,
+        max_value=1.0,
+        value=_safe_float(runtime.get("w_stability", 0.40), 0.40),
+        step=0.01,
+        disabled=ui_mode != "Advanced",
+    )
+    w_activity = st.slider(
+        "Activity Weight",
+        min_value=0.0,
+        max_value=1.0,
+        value=_safe_float(runtime.get("w_activity", 0.40), 0.40),
+        step=0.01,
+        disabled=ui_mode != "Advanced",
+    )
+    w_uncertainty = st.slider(
+        "Uncertainty Weight",
+        min_value=0.0,
+        max_value=1.0,
+        value=_safe_float(runtime.get("w_uncertainty", 0.10), 0.10),
+        step=0.01,
+        disabled=ui_mode != "Advanced",
+    )
+    w_structure = st.slider(
+        "Structure Weight",
+        min_value=0.0,
+        max_value=1.0,
+        value=_safe_float(runtime.get("w_structure", 0.10), 0.10),
+        step=0.01,
+        disabled=ui_mode != "Advanced",
+    )
+    w_plddt = st.slider(
+        "pLDDT Weight",
+        min_value=0.0,
+        max_value=1.0,
+        value=_safe_float(runtime.get("w_plddt", 0.05), 0.05),
+        step=0.01,
+        disabled=ui_mode != "Advanced",
+    )
+    w_ptm = st.slider(
+        "pTM Weight",
+        min_value=0.0,
+        max_value=1.0,
+        value=_safe_float(runtime.get("w_ptm", 0.03), 0.03),
+        step=0.01,
+        disabled=ui_mode != "Advanced",
+    )
+    w_pae = st.slider(
+        "PAE(inv) Weight",
+        min_value=0.0,
+        max_value=1.0,
+        value=_safe_float(runtime.get("w_pae", 0.02), 0.02),
+        step=0.01,
+        disabled=ui_mode != "Advanced",
+    )
 
     st.subheader("Model")
-    model = dict(cfg.get("model", {}))
     structure_backend = st.selectbox(
         "Structure Backend",
         options=["dummy", "esmfold", "alphafold2"],
-        index=["dummy", "esmfold", "alphafold2"].index(model.get("structure_backend", "dummy")),
+        index=["dummy", "esmfold", "alphafold2"].index(
+            defaults["structure_backend"] if defaults["structure_backend"] in {"dummy", "esmfold", "alphafold2"} else "esmfold"
+        ),
+        help="Use `esmfold` for real adapter integration path.",
+    )
+    structure_strict = st.checkbox(
+        "Strict Structure Runtime",
+        value=bool(defaults["structure_strict"]),
+        disabled=ui_mode != "Advanced",
+        help="When enabled, adapter failures stop the run instead of silent mock fallback.",
     )
     esmfold_command = st.text_input(
         "ESMFold External Command (Optional)",
@@ -348,6 +543,7 @@ with st.sidebar:
         max_value=600,
         value=int(model.get("structure_timeout_sec", 120)),
         step=5,
+        disabled=ui_mode != "Advanced",
     )
     structure_retries = st.slider(
         "Structure Retries",
@@ -355,6 +551,7 @@ with st.sidebar:
         max_value=5,
         value=int(model.get("structure_retries", 1)),
         step=1,
+        disabled=ui_mode != "Advanced",
     )
     structure_batch_size = st.slider(
         "Structure Batch Size",
@@ -362,10 +559,31 @@ with st.sidebar:
         max_value=128,
         value=int(model.get("structure_batch_size", 16)),
         step=1,
+        disabled=ui_mode != "Advanced",
     )
-    embedding_dim = st.slider("Embedding Dim", min_value=8, max_value=1024, value=int(model.get("embedding_dim", 128)), step=8)
-    uncertainty_samples = st.slider("Uncertainty Samples", min_value=1, max_value=20, value=int(model.get("uncertainty_samples", 5)))
-    uncertainty_noise = st.slider("Uncertainty Noise", min_value=0.0, max_value=0.2, value=float(model.get("uncertainty_noise", 0.02)), step=0.005)
+    embedding_dim = st.slider(
+        "Embedding Dim",
+        min_value=8,
+        max_value=1024,
+        value=int(model.get("embedding_dim", 128)),
+        step=8,
+        disabled=ui_mode != "Advanced",
+    )
+    uncertainty_samples = st.slider(
+        "Uncertainty Samples",
+        min_value=1,
+        max_value=20,
+        value=int(model.get("uncertainty_samples", 5)),
+        disabled=ui_mode != "Advanced",
+    )
+    uncertainty_noise = st.slider(
+        "Uncertainty Noise",
+        min_value=0.0,
+        max_value=0.2,
+        value=_safe_float(model.get("uncertainty_noise", 0.02), 0.02),
+        step=0.005,
+        disabled=ui_mode != "Advanced",
+    )
     property_checkpoint = st.text_input(
         "Property Checkpoint (.npz or .pt)",
         value=str(model.get("property_checkpoint", "")),
@@ -466,6 +684,10 @@ with st.sidebar:
         use_container_width=True,
     )
 
+    st.caption(
+        "Simple mode runs with profile defaults and hides advanced research knobs. "
+        "Switch to Advanced to edit full constraints/weights/model settings."
+    )
     run_clicked = st.button("Run MAPLE", type="primary", use_container_width=True)
 
 if run_active_learning_clicked:
@@ -598,15 +820,15 @@ if run_clicked:
         "use_weight_preset": bool(use_weight_preset),
         "normalize_score_weights": bool(normalize_score_weights),
         "min_hamming_distance": int(min_hamming_distance),
-        "constraint_enabled": bool(constraint_enabled),
+        "constraint_enabled": bool(constraint_enabled_effective),
         "constraint_mode": constraint_mode,
-        "constraint_penalty": None if not constraint_enabled else float(constraint_penalty),
-        "min_stability": None if not constraint_enabled else float(min_stability),
-        "min_activity": None if not constraint_enabled else float(min_activity),
-        "min_structure_confidence": None if not constraint_enabled else float(min_structure_confidence),
-        "min_plddt": None if not constraint_enabled else float(min_plddt),
-        "min_ptm": None if not constraint_enabled else float(min_ptm),
-        "max_pae": None if not constraint_enabled else float(max_pae),
+        "constraint_penalty": None if not constraint_enabled_effective else float(constraint_penalty),
+        "min_stability": None if not constraint_enabled_effective else float(min_stability),
+        "min_activity": None if not constraint_enabled_effective else float(min_activity),
+        "min_structure_confidence": None if not constraint_enabled_effective else float(min_structure_confidence),
+        "min_plddt": None if not constraint_enabled_effective else float(min_plddt),
+        "min_ptm": None if not constraint_enabled_effective else float(min_ptm),
+        "max_pae": None if not constraint_enabled_effective else float(max_pae),
         "w_stability": float(w_stability),
         "w_activity": float(w_activity),
         "w_uncertainty": float(w_uncertainty),
@@ -619,6 +841,7 @@ if run_clicked:
         "alphafold2_command": alphafold2_command.strip() or None,
         "structure_timeout_sec": int(structure_timeout_sec),
         "structure_retries": int(structure_retries),
+        "structure_strict": bool(structure_strict),
         "structure_batch_size": int(structure_batch_size),
         "embedding_dim": int(embedding_dim),
         "property_checkpoint": property_checkpoint.strip() or None,

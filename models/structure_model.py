@@ -32,6 +32,10 @@ def _mock_structure(sequence: str, backend: str, mode: str) -> dict:
         "mode": mode,
         "confidence": _pseudo_confidence(sequence, backend),
         "engine": "mock",
+        "plddt_mean": None,
+        "ptm": None,
+        "pae_mean": None,
+        "pdb_path": None,
         "note": "adapter mock output; integrate external engine for real folding",
     }
 
@@ -60,16 +64,27 @@ class _ExternalToolAdapter:
         command: str | None = None,
         timeout_sec: int = 60,
         retries: int = 0,
+        strict: bool = False,
     ) -> None:
         self.adapter_backend = adapter_backend
         self.command = command.strip() if command else ""
         self.timeout_sec = max(1, int(timeout_sec))
         self.retries = max(0, int(retries))
+        self.strict = bool(strict)
 
     def _normalize_external_payload(self, sequence: str, expanded_command: str, payload: dict) -> dict:
         confidence = _safe_float(payload.get("confidence"))
         if confidence is None:
             confidence = _pseudo_confidence(sequence, f"{self.adapter_backend}:external")
+
+        plddt_mean = _safe_float(payload.get("plddt_mean"))
+        ptm = _safe_float(payload.get("ptm"))
+        pae_mean = _safe_float(payload.get("pae_mean"))
+        runtime_sec = _safe_float(payload.get("runtime_sec"))
+        pdb_path_raw = payload.get("pdb_path")
+        pdb_path = str(pdb_path_raw).strip() if pdb_path_raw is not None else None
+        if pdb_path == "":
+            pdb_path = None
 
         normalized = {
             "sequence_length": len(sequence),
@@ -78,15 +93,15 @@ class _ExternalToolAdapter:
             "confidence": float(confidence),
             "engine": str(payload.get("engine", "external_command")),
             "command": expanded_command,
+            "plddt_mean": plddt_mean,
+            "ptm": ptm,
+            "pae_mean": pae_mean,
+            "pdb_path": pdb_path,
+            "runtime_sec": runtime_sec,
         }
 
         for key in [
             "model_id",
-            "pdb_path",
-            "pae_mean",
-            "ptm",
-            "plddt_mean",
-            "runtime_sec",
             "note",
         ]:
             if key in payload:
@@ -108,14 +123,21 @@ class _ExternalToolAdapter:
             return {"raw_output": text[:1000]}
 
     def run_external(self, sequence: str) -> dict | None:
+        last_error = ""
         if not self.command:
+            last_error = f"{self.adapter_backend}: external command is not configured"
+            if self.strict:
+                raise RuntimeError(last_error)
             return None
 
         cmd_head = self.command.split()[0]
         if shutil.which(cmd_head) is None:
+            last_error = f"{self.adapter_backend}: command not found in PATH: {cmd_head}"
+            if self.strict:
+                raise RuntimeError(last_error)
             return None
 
-        for _attempt in range(self.retries + 1):
+        for attempt in range(self.retries + 1):
             with tempfile.TemporaryDirectory(prefix="maple_struct_") as tmp:
                 seq_file = Path(tmp) / "sequence.txt"
                 out_file = Path(tmp) / "result.json"
@@ -135,17 +157,33 @@ class _ExternalToolAdapter:
                         timeout=self.timeout_sec,
                     )
                 except subprocess.TimeoutExpired:
+                    last_error = (
+                        f"{self.adapter_backend}: timeout after {self.timeout_sec}s "
+                        f"(attempt {attempt + 1}/{self.retries + 1})"
+                    )
                     continue
 
                 if proc.returncode != 0 or not out_file.exists():
+                    stderr = (proc.stderr or "").strip()
+                    last_error = (
+                        f"{self.adapter_backend}: external command failed rc={proc.returncode} "
+                        f"(attempt {attempt + 1}/{self.retries + 1}) "
+                        f"stderr={stderr[:200]}"
+                    )
                     continue
 
                 payload = self._read_payload(out_file)
                 if payload is None:
+                    last_error = (
+                        f"{self.adapter_backend}: external command produced empty payload "
+                        f"(attempt {attempt + 1}/{self.retries + 1})"
+                    )
                     continue
 
                 return self._normalize_external_payload(sequence, expanded, payload)
 
+        if self.strict:
+            raise RuntimeError(last_error or f"{self.adapter_backend}: external execution failed")
         return None
 
 
@@ -157,12 +195,14 @@ class ESMFoldStructurePredictor(_ExternalToolAdapter):
         command: str | None = None,
         timeout_sec: int = 60,
         retries: int = 0,
+        strict: bool = False,
     ) -> None:
         super().__init__(
             adapter_backend="esmfold_adapter",
             command=command,
             timeout_sec=timeout_sec,
             retries=retries,
+            strict=strict,
         )
 
     def predict(self, sequence: str) -> dict:
@@ -180,12 +220,14 @@ class AlphaFoldStructurePredictor(_ExternalToolAdapter):
         command: str | None = None,
         timeout_sec: int = 60,
         retries: int = 0,
+        strict: bool = False,
     ) -> None:
         super().__init__(
             adapter_backend="alphafold2_adapter",
             command=command,
             timeout_sec=timeout_sec,
             retries=retries,
+            strict=strict,
         )
 
     def predict(self, sequence: str) -> dict:
@@ -205,6 +247,7 @@ def build_structure_predictor(
 
     timeout_sec = int(options.get("structure_timeout_sec", 60) or 60)
     retries = int(options.get("structure_retries", 0) or 0)
+    strict = bool(options.get("structure_strict", False))
 
     if normalized == "dummy":
         return DummyStructurePredictor()
@@ -213,12 +256,14 @@ def build_structure_predictor(
             command=options.get("esmfold_command"),
             timeout_sec=timeout_sec,
             retries=retries,
+            strict=strict,
         )
     if normalized == "alphafold2":
         return AlphaFoldStructurePredictor(
             command=options.get("alphafold2_command"),
             timeout_sec=timeout_sec,
             retries=retries,
+            strict=strict,
         )
 
     raise ValueError(f"Unsupported structure backend: {backend}")
