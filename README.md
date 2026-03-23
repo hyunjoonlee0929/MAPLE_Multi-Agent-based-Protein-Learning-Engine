@@ -13,19 +13,19 @@ MAPLE is a multi-agent system that autonomously explores protein sequence space 
 
 ## Install
 ```bash
-cd /Users/hyunjoon/codex/MAPLE
+cd MAPLE
 python3 -m pip install -r requirements.txt
 ```
 
 ## CLI Run
 ```bash
-cd /Users/hyunjoon/codex/MAPLE
+cd MAPLE
 python3 main.py --num-iterations 5 --selection-strategy diverse --min-hamming-distance 2
 ```
 
 ## Web UI Run (Streamlit)
 ```bash
-cd /Users/hyunjoon/codex/MAPLE
+cd MAPLE
 streamlit run app.py
 ```
 
@@ -43,7 +43,7 @@ python3 scripts/run_esmfold_adapter.py --sequence-file {sequence_file} --output-
 
 ### Run with ESMFold backend
 ```bash
-cd /Users/hyunjoon/codex/MAPLE
+cd MAPLE
 python3 main.py \
   --structure-backend esmfold \
   --esmfold-command "python3 scripts/run_esmfold_adapter.py --sequence-file {sequence_file} --output-file {output_file} --allow-mock" \
@@ -95,7 +95,7 @@ Runtime constraints:
 
 Example:
 ```bash
-cd /Users/hyunjoon/codex/MAPLE
+cd MAPLE
 python3 main.py \
   --constraint-enabled \
   --min-plddt 60 \
@@ -115,11 +115,11 @@ Expected columns:
 - `activity`
 
 A sample dataset is included at:
-- `/Users/hyunjoon/codex/MAPLE/data/sample_property_labels.csv`
+- `data/sample_property_labels.csv`
 
 ### 2) Train NPZ checkpoint
 ```bash
-cd /Users/hyunjoon/codex/MAPLE
+cd MAPLE
 python3 scripts/train_property_numpy.py \
   --data data/sample_property_labels.csv \
   --output checkpoints/property_linear.npz \
@@ -128,7 +128,7 @@ python3 scripts/train_property_numpy.py \
 
 ### 3) Run MAPLE with trained checkpoint
 ```bash
-cd /Users/hyunjoon/codex/MAPLE
+cd MAPLE
 python3 main.py \
   --property-checkpoint checkpoints/property_linear.npz \
   --num-iterations 5
