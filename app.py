@@ -137,8 +137,28 @@ with st.sidebar:
     mutation_rate = st.slider("Mutation Rate", min_value=1, max_value=10, value=int(runtime.get("mutation_rate", 1)))
     selection_strategy = st.selectbox(
         "Selection Strategy",
-        options=["diverse", "elitist"],
-        index=0 if runtime.get("selection_strategy", "diverse") == "diverse" else 1,
+        options=["diverse", "elitist", "pareto", "pareto_bo"],
+        index=["diverse", "elitist", "pareto", "pareto_bo"].index(
+            str(runtime.get("selection_strategy", "diverse"))
+            if str(runtime.get("selection_strategy", "diverse")) in {"diverse", "elitist", "pareto", "pareto_bo"}
+            else "diverse"
+        ),
+    )
+    bo_beta = st.slider(
+        "BO Beta (pareto_bo)",
+        min_value=0.0,
+        max_value=2.0,
+        value=float(runtime.get("bo_beta", 0.30)),
+        step=0.05,
+        disabled=selection_strategy != "pareto_bo",
+    )
+    bo_trials_per_parent = st.slider(
+        "BO Trials / Parent",
+        min_value=1,
+        max_value=32,
+        value=int(runtime.get("bo_trials_per_parent", 8)),
+        step=1,
+        disabled=selection_strategy != "pareto_bo",
     )
     scoring_preset = st.selectbox(
         "Scoring Preset",
@@ -355,6 +375,8 @@ if run_clicked:
         "top_k": int(top_k),
         "mutation_rate": int(mutation_rate),
         "selection_strategy": selection_strategy,
+        "bo_beta": float(bo_beta),
+        "bo_trials_per_parent": int(bo_trials_per_parent),
         "scoring_preset": scoring_preset,
         "use_weight_preset": bool(use_weight_preset),
         "normalize_score_weights": bool(normalize_score_weights),

@@ -115,6 +115,34 @@ MAPLE now records per-iteration constraint tracking in history:
 - `constraint_total`
 - `constraint_mode`
 
+## Multi-Objective Optimization (Pareto + BO)
+MAPLE now supports multi-objective sequence selection strategies:
+- `selection_strategy=pareto`
+- `selection_strategy=pareto_bo`
+
+Pareto objectives (maximization):
+- stability
+- activity
+- negative uncertainty
+- structure confidence
+
+`pareto_bo` uses a lightweight linear surrogate + novelty-based uncertainty to rank mutated candidates with:
+- acquisition = `predicted_score + bo_beta * novelty_uncertainty`
+
+Relevant runtime params:
+- `bo_beta`
+- `bo_trials_per_parent`
+
+CLI example:
+```bash
+cd MAPLE
+python3 main.py \
+  --selection-strategy pareto_bo \
+  --bo-beta 0.35 \
+  --bo-trials-per-parent 10 \
+  --num-iterations 5
+```
+
 ## Scoring Presets
 You can use preset profiles and automatic weight normalization:
 - `balanced`

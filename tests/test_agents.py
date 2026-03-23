@@ -305,3 +305,62 @@ def test_optimization_agent_diverse_strategy_respects_distance() -> None:
     updated = OptimizationAgent(random_seed=1).run(state)
     elite_a, elite_b = updated["next_sequences"][0], updated["next_sequences"][1]
     assert hamming_distance(elite_a, elite_b) >= 2
+
+
+def test_optimization_agent_pareto_selects_non_dominated_extremes() -> None:
+    state = create_initial_state("AAAA")
+    state["iteration"] = 0
+    state["config"] = {
+        "top_k": 2,
+        "num_candidates": 4,
+        "mutation_rate": 1,
+        "selection_strategy": "pareto",
+    }
+    state["sequences"] = ["SEQ_A", "SEQ_B", "SEQ_C"]
+    state["scores"] = [0.95, 0.94, 0.93]
+    state["embeddings"] = [np.ones((4,), dtype=np.float32) for _ in range(3)]
+    state["structures"] = [
+        {"confidence": 0.9},
+        {"confidence": 0.9},
+        {"confidence": 0.5},
+    ]
+    state["properties"] = [
+        {"stability": 0.9, "activity": 0.1, "uncertainty": 0.1},
+        {"stability": 0.1, "activity": 0.9, "uncertainty": 0.1},
+        {"stability": 0.5, "activity": 0.5, "uncertainty": 0.6},
+    ]
+
+    updated = OptimizationAgent(random_seed=1).run(state)
+    elites = updated["next_sequences"][:2]
+    assert "SEQ_A" in elites
+    assert "SEQ_B" in elites
+
+
+def test_optimization_agent_pareto_bo_generates_candidates() -> None:
+    state = create_initial_state("MKTFFV")
+    state["iteration"] = 0
+    state["config"] = {
+        "top_k": 2,
+        "num_candidates": 6,
+        "mutation_rate": 1,
+        "selection_strategy": "pareto_bo",
+        "bo_beta": 0.3,
+        "bo_trials_per_parent": 6,
+    }
+    state["sequences"] = ["MKTFFV", "MKTFFI", "MKTFFL"]
+    state["scores"] = [0.9, 0.85, 0.8]
+    state["embeddings"] = [
+        np.random.default_rng(1).normal(size=(8,)).astype(np.float32),
+        np.random.default_rng(2).normal(size=(8,)).astype(np.float32),
+        np.random.default_rng(3).normal(size=(8,)).astype(np.float32),
+    ]
+    state["structures"] = [{"confidence": 0.7}, {"confidence": 0.8}, {"confidence": 0.6}]
+    state["properties"] = [
+        {"stability": 0.9, "activity": 0.4, "uncertainty": 0.1},
+        {"stability": 0.7, "activity": 0.8, "uncertainty": 0.2},
+        {"stability": 0.6, "activity": 0.6, "uncertainty": 0.3},
+    ]
+
+    updated = OptimizationAgent(random_seed=11).run(state)
+    assert len(updated["next_sequences"]) == 6
+    assert len(set(updated["next_sequences"])) >= 3

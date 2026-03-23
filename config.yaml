@@ -11,6 +11,8 @@ runtime:
   mutation_rate: 1
   selection_strategy: "diverse"
   min_hamming_distance: 2
+  bo_beta: 0.30
+  bo_trials_per_parent: 8
 
   scoring_preset: "balanced"
   use_weight_preset: true

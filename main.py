@@ -144,6 +144,8 @@ def run_maple(
         "constraint_enabled",
         "constraint_mode",
         "constraint_penalty",
+        "bo_beta",
+        "bo_trials_per_parent",
         "min_stability",
         "min_activity",
         "min_structure_confidence",
@@ -256,6 +258,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--constraint-enabled", action="store_true", default=None, help="Enable constrained optimization")
     parser.add_argument("--constraint-mode", type=str, default=None, help="Constraint mode: hard|soft")
     parser.add_argument("--constraint-penalty", type=float, default=None, help="Penalty multiplier in soft mode")
+    parser.add_argument("--bo-beta", type=float, default=None, help="Exploration weight for pareto_bo acquisition")
+    parser.add_argument("--bo-trials-per-parent", type=int, default=None, help="Mutation trials per parent in pareto_bo")
     parser.add_argument("--min-stability", type=float, default=None, help="Minimum stability constraint")
     parser.add_argument("--min-activity", type=float, default=None, help="Minimum activity constraint")
     parser.add_argument("--min-structure-confidence", type=float, default=None, help="Minimum structure confidence constraint")
@@ -315,6 +319,8 @@ def main() -> None:
         "constraint_enabled": args.constraint_enabled,
         "constraint_mode": args.constraint_mode,
         "constraint_penalty": args.constraint_penalty,
+        "bo_beta": args.bo_beta,
+        "bo_trials_per_parent": args.bo_trials_per_parent,
         "min_stability": args.min_stability,
         "min_activity": args.min_activity,
         "min_structure_confidence": args.min_structure_confidence,

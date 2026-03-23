@@ -106,5 +106,7 @@ class PlannerAgent:
         config.setdefault("constraint_enabled", False)
         config.setdefault("constraint_mode", "hard")
         config.setdefault("constraint_penalty", 0.20)
+        config.setdefault("bo_beta", 0.30)
+        config.setdefault("bo_trials_per_parent", 8)
 
         return state
