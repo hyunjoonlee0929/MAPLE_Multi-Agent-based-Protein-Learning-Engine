@@ -62,7 +62,7 @@ Recommended JSON keys:
 - `engine` (string)
 - optional: `model_id`, `pdb_path`, `pae_mean`, `ptm`, `plddt_mean`, `runtime_sec`, `note`
 
-## Phase 1 Scoring Upgrade
+## Scoring Upgrade
 Evaluation score now combines:
 - stability (`w_stability`)
 - activity (`w_activity`)
@@ -172,6 +172,21 @@ python3 scripts/retrain_property_pipeline.py \
 Outputs:
 - `checkpoints/property_linear_best.npz`
 - `outputs/property_retrain/retrain_report.json`
+
+### 2-2) Checkpoint Validation Leaderboard
+```bash
+cd MAPLE
+python3 scripts/evaluate_property_checkpoints.py \
+  --data data/sample_property_labels.csv \
+  --checkpoints checkpoints/property_linear.npz,checkpoints/property_linear_best.npz \
+  --val-ratio 0.2 \
+  --split-seed 42 \
+  --output-dir outputs/property_validation
+```
+
+Outputs:
+- `outputs/property_validation/validation_leaderboard.json`
+- `outputs/property_validation/validation_leaderboard.csv`
 
 ### 3) Run MAPLE with trained checkpoint
 ```bash
