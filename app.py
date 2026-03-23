@@ -89,9 +89,10 @@ with st.sidebar:
     )
 
     st.subheader("Scoring Weights")
-    w_stability = st.slider("Stability Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_stability", 0.45)), step=0.01)
-    w_activity = st.slider("Activity Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_activity", 0.45)), step=0.01)
+    w_stability = st.slider("Stability Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_stability", 0.40)), step=0.01)
+    w_activity = st.slider("Activity Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_activity", 0.40)), step=0.01)
     w_uncertainty = st.slider("Uncertainty Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_uncertainty", 0.10)), step=0.01)
+    w_structure = st.slider("Structure Weight", min_value=0.0, max_value=1.0, value=float(runtime.get("w_structure", 0.10)), step=0.01)
 
     st.subheader("Model")
     model = dict(cfg.get("model", {}))
@@ -124,6 +125,13 @@ with st.sidebar:
         value=int(model.get("structure_retries", 1)),
         step=1,
     )
+    structure_batch_size = st.slider(
+        "Structure Batch Size",
+        min_value=1,
+        max_value=128,
+        value=int(model.get("structure_batch_size", 16)),
+        step=1,
+    )
     embedding_dim = st.slider("Embedding Dim", min_value=8, max_value=1024, value=int(model.get("embedding_dim", 128)), step=8)
     uncertainty_samples = st.slider("Uncertainty Samples", min_value=1, max_value=20, value=int(model.get("uncertainty_samples", 5)))
     uncertainty_noise = st.slider("Uncertainty Noise", min_value=0.0, max_value=0.2, value=float(model.get("uncertainty_noise", 0.02)), step=0.005)
@@ -148,11 +156,13 @@ if run_clicked:
         "w_stability": float(w_stability),
         "w_activity": float(w_activity),
         "w_uncertainty": float(w_uncertainty),
+        "w_structure": float(w_structure),
         "structure_backend": structure_backend,
         "esmfold_command": esmfold_command.strip() or None,
         "alphafold2_command": alphafold2_command.strip() or None,
         "structure_timeout_sec": int(structure_timeout_sec),
         "structure_retries": int(structure_retries),
+        "structure_batch_size": int(structure_batch_size),
         "embedding_dim": int(embedding_dim),
         "property_checkpoint": property_checkpoint.strip() or None,
         "uncertainty_samples": int(uncertainty_samples),

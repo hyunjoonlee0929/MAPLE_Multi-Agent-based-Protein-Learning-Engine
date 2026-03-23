@@ -19,16 +19,17 @@ def test_pipeline_runs_multiple_iterations_end_to_end() -> None:
         "mutation_rate": 1,
         "selection_strategy": "diverse",
         "min_hamming_distance": 1,
-        "w_stability": 0.45,
-        "w_activity": 0.45,
+        "w_stability": 0.40,
+        "w_activity": 0.40,
         "w_uncertainty": 0.10,
+        "w_structure": 0.10,
     }
 
     pipeline = MaplePipeline(
         config=PipelineConfig(num_iterations=3),
         planner_agent=PlannerAgent(),
         sequence_agent=SequenceAgent(random_seed=1),
-        structure_agent=StructureAgent(),
+        structure_agent=StructureAgent(batch_size=2),
         property_agent=PropertyAgent(embedding_dim=16, uncertainty_samples=3, uncertainty_noise=0.01),
         optimization_agent=OptimizationAgent(random_seed=2),
         evaluation_agent=EvaluationAgent(),

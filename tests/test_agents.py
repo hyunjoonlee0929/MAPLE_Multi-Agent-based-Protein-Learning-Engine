@@ -21,6 +21,7 @@ def test_planner_agent_sets_defaults() -> None:
     assert state["config"]["num_candidates"] == 6
     assert state["config"]["top_k"] == 2
     assert state["config"]["mutation_rate"] == 1
+    assert state["config"]["w_structure"] == 0.10
 
 
 
@@ -93,9 +94,14 @@ def test_property_agent_generates_embeddings_and_properties() -> None:
 def test_evaluation_agent_filters_invalid_and_ranks_scores() -> None:
     state = create_initial_state("MKTFFV")
     state["iteration"] = 1
-    state["config"] = {"w_stability": 0.45, "w_activity": 0.45, "w_uncertainty": 0.10}
+    state["config"] = {
+        "w_stability": 0.40,
+        "w_activity": 0.40,
+        "w_uncertainty": 0.10,
+        "w_structure": 0.10,
+    }
     state["sequences"] = ["MKTFFV", "INVALIDX"]
-    state["structures"] = [{"id": 1}, {"id": 2}]
+    state["structures"] = [{"confidence": 0.7}, {"confidence": 0.1}]
     state["embeddings"] = [np.ones((4,), dtype=np.float32), np.zeros((4,), dtype=np.float32)]
     state["properties"] = [
         {"stability": 0.8, "activity": 0.9, "uncertainty": 0.2},
@@ -112,13 +118,39 @@ def test_evaluation_agent_filters_invalid_and_ranks_scores() -> None:
 
 def test_evaluation_agent_uncertainty_weight_can_change_ranking() -> None:
     state = create_initial_state("AAAA")
-    state["config"] = {"w_stability": 0.0, "w_activity": 0.0, "w_uncertainty": 1.0}
+    state["config"] = {
+        "w_stability": 0.0,
+        "w_activity": 0.0,
+        "w_uncertainty": 1.0,
+        "w_structure": 0.0,
+    }
     state["sequences"] = ["AAAA", "AAAT"]
-    state["structures"] = [{}, {}]
+    state["structures"] = [{"confidence": 0.1}, {"confidence": 0.1}]
     state["embeddings"] = [np.zeros((2,), dtype=np.float32), np.zeros((2,), dtype=np.float32)]
     state["properties"] = [
         {"stability": 0.0, "activity": 0.0, "uncertainty": 0.1},
         {"stability": 0.0, "activity": 0.0, "uncertainty": 0.9},
+    ]
+
+    updated = EvaluationAgent().run(state)
+    assert updated["sequences"][0] == "AAAT"
+
+
+
+def test_evaluation_agent_structure_weight_can_change_ranking() -> None:
+    state = create_initial_state("AAAA")
+    state["config"] = {
+        "w_stability": 0.0,
+        "w_activity": 0.0,
+        "w_uncertainty": 0.0,
+        "w_structure": 1.0,
+    }
+    state["sequences"] = ["AAAA", "AAAT"]
+    state["structures"] = [{"confidence": 0.2}, {"confidence": 0.9}]
+    state["embeddings"] = [np.zeros((2,), dtype=np.float32), np.zeros((2,), dtype=np.float32)]
+    state["properties"] = [
+        {"stability": 0.0, "activity": 0.0, "uncertainty": 0.0},
+        {"stability": 0.0, "activity": 0.0, "uncertainty": 0.0},
     ]
 
     updated = EvaluationAgent().run(state)

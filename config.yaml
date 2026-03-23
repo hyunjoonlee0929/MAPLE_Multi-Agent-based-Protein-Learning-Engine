@@ -11,9 +11,10 @@ runtime:
   mutation_rate: 1
   selection_strategy: "diverse"
   min_hamming_distance: 2
-  w_stability: 0.45
-  w_activity: 0.45
+  w_stability: 0.40
+  w_activity: 0.40
   w_uncertainty: 0.10
+  w_structure: 0.10
 
 model:
   embedding_dim: 128
@@ -22,6 +23,7 @@ model:
   alphafold2_command: ""
   structure_timeout_sec: 120
   structure_retries: 1
+  structure_batch_size: 16
   property_checkpoint: ""
   uncertainty_samples: 5
   uncertainty_noise: 0.02

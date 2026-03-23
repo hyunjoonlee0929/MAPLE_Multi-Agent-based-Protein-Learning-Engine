@@ -7,6 +7,7 @@ MAPLE is a multi-agent system that autonomously explores protein sequence space 
 - Random mutation-based sequence exploration
 - Structure adapters: `dummy`, `esmfold`, `alphafold2`
 - Embedding + property prediction with uncertainty-aware scoring
+- Structure-confidence-aware scoring (`w_structure`)
 - Diversity-aware evolutionary optimization
 - Iteration artifact export (JSON/CSV)
 
@@ -47,7 +48,8 @@ python3 main.py \
   --structure-backend esmfold \
   --esmfold-command "python3 scripts/run_esmfold_adapter.py --sequence-file {sequence_file} --output-file {output_file} --allow-mock" \
   --structure-timeout-sec 120 \
-  --structure-retries 1
+  --structure-retries 1 \
+  --structure-batch-size 16
 ```
 
 ### External command contract
@@ -59,6 +61,19 @@ Recommended JSON keys:
 - `confidence` (float)
 - `engine` (string)
 - optional: `model_id`, `pdb_path`, `pae_mean`, `ptm`, `plddt_mean`, `runtime_sec`, `note`
+
+## Phase 1 Scoring Upgrade
+Evaluation score now combines:
+- stability (`w_stability`)
+- activity (`w_activity`)
+- uncertainty (`w_uncertainty`)
+- structure confidence (`w_structure`)
+
+Default weights in `config.yaml`:
+- `w_stability: 0.40`
+- `w_activity: 0.40`
+- `w_uncertainty: 0.10`
+- `w_structure: 0.10`
 
 ## Upgrade Step: Labeled Property Model
 You can train a lightweight labeled surrogate model (stability/activity) and plug it into MAPLE.

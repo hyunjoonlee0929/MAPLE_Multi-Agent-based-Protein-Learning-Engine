@@ -36,16 +36,25 @@ def combined_score(
 
 
 
-def combined_score_with_uncertainty(
+def combined_score_with_structure(
     stability: Iterable[float],
     activity: Iterable[float],
     uncertainty: Iterable[float],
-    w_stability: float = 0.45,
-    w_activity: float = 0.45,
+    structure_confidence: Iterable[float],
+    w_stability: float = 0.40,
+    w_activity: float = 0.40,
     w_uncertainty: float = 0.10,
+    w_structure: float = 0.10,
 ) -> np.ndarray:
-    """Weighted score with exploration bonus from normalized uncertainty."""
+    """Weighted score with uncertainty and structure confidence."""
     s_norm = minmax_normalize(stability)
     a_norm = minmax_normalize(activity)
     u_norm = minmax_normalize(uncertainty)
-    return w_stability * s_norm + w_activity * a_norm + w_uncertainty * u_norm
+    c_norm = minmax_normalize(structure_confidence)
+
+    return (
+        w_stability * s_norm
+        + w_activity * a_norm
+        + w_uncertainty * u_norm
+        + w_structure * c_norm
+    )

@@ -140,6 +140,7 @@ def run_maple(
         "w_stability",
         "w_activity",
         "w_uncertainty",
+        "w_structure",
     ]:
         if key in overrides and overrides[key] is not None:
             runtime_cfg[key] = overrides[key]
@@ -156,6 +157,7 @@ def run_maple(
         "structure_timeout_sec": _pick("structure_timeout_sec", model_cfg.get("structure_timeout_sec", 60)),
         "structure_retries": _pick("structure_retries", model_cfg.get("structure_retries", 0)),
     }
+    structure_batch_size = int(_pick("structure_batch_size", model_cfg.get("structure_batch_size", 16)))
 
     state = create_initial_state(seed_sequence)
     state["config"] = runtime_cfg
@@ -164,7 +166,11 @@ def run_maple(
         config=PipelineConfig(num_iterations=num_iterations),
         planner_agent=PlannerAgent(),
         sequence_agent=SequenceAgent(random_seed=seed + 11),
-        structure_agent=StructureAgent(backend=structure_backend, options=structure_options),
+        structure_agent=StructureAgent(
+            backend=structure_backend,
+            options=structure_options,
+            batch_size=structure_batch_size,
+        ),
         property_agent=PropertyAgent(
             embedding_dim=embedding_dim,
             property_checkpoint=property_checkpoint,
@@ -214,6 +220,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--w-stability", type=float, default=None, help="Score weight for stability")
     parser.add_argument("--w-activity", type=float, default=None, help="Score weight for activity")
     parser.add_argument("--w-uncertainty", type=float, default=None, help="Score weight for uncertainty")
+    parser.add_argument("--w-structure", type=float, default=None, help="Score weight for structure confidence")
 
     parser.add_argument("--embedding-dim", type=int, default=None, help="Override embedding dimension")
     parser.add_argument("--property-checkpoint", type=str, default=None, help="Property checkpoint path")
@@ -224,6 +231,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--alphafold2-command", type=str, default=None, help="Optional external AlphaFold2 command")
     parser.add_argument("--structure-timeout-sec", type=int, default=None, help="Timeout per structure external call")
     parser.add_argument("--structure-retries", type=int, default=None, help="Retry count for structure external calls")
+    parser.add_argument("--structure-batch-size", type=int, default=None, help="Batch size for structure prediction loop")
     parser.add_argument("--output-dir", type=str, default="outputs", help="Artifact directory")
 
     return parser.parse_args()
@@ -253,6 +261,7 @@ def main() -> None:
         "w_stability": args.w_stability,
         "w_activity": args.w_activity,
         "w_uncertainty": args.w_uncertainty,
+        "w_structure": args.w_structure,
         "embedding_dim": args.embedding_dim,
         "property_checkpoint": args.property_checkpoint,
         "uncertainty_samples": args.uncertainty_samples,
@@ -262,6 +271,7 @@ def main() -> None:
         "alphafold2_command": args.alphafold2_command,
         "structure_timeout_sec": args.structure_timeout_sec,
         "structure_retries": args.structure_retries,
+        "structure_batch_size": args.structure_batch_size,
     }
 
     final_state, resolved, output_dir = run_maple(
