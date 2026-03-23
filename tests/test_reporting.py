@@ -15,6 +15,10 @@ def test_reporting_exports_json_csv_and_summary(tmp_path: Path) -> None:
             "best_score": 0.9,
             "mean_score": 0.5,
             "num_candidates": 5,
+            "constraint_pass_rate": 0.8,
+            "constraint_passed": 4,
+            "constraint_total": 5,
+            "constraint_mode": "hard",
         }
     ]
     final_state = {
@@ -38,3 +42,7 @@ def test_reporting_exports_json_csv_and_summary(tmp_path: Path) -> None:
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["best_sequence"] == "AAAA"
     assert payload["best_score"] == 0.9
+
+    csv_text = csv_path.read_text(encoding="utf-8")
+    assert "constraint_pass_rate" in csv_text
+    assert "constraint_mode" in csv_text

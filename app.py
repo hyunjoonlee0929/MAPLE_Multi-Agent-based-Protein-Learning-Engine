@@ -260,6 +260,13 @@ if run_clicked:
 
     constraint_summary = final_state.get("constraint_summary", {})
     if constraint_summary.get("enabled"):
+        pass_rate_pct = 100.0 * float(constraint_summary.get("passed", 0)) / max(1, int(constraint_summary.get("total", 0)))
+        c1, c2 = st.columns(2)
+        c1.metric("Constraint Pass Rate", f"{pass_rate_pct:.1f}%")
+        c2.metric(
+            "Constraint Passed",
+            f"{constraint_summary.get('passed', 0)}/{constraint_summary.get('total', 0)}",
+        )
         st.info(
             "Constrained optimization enabled: "
             f"{constraint_summary.get('passed', 0)}/{constraint_summary.get('total', 0)} "
@@ -273,6 +280,9 @@ if run_clicked:
     hist_df = pd.DataFrame(history)
     if not hist_df.empty:
         st.line_chart(hist_df.set_index("iteration")[["best_score", "mean_score"]])
+        if "constraint_pass_rate" in hist_df.columns:
+            st.caption("Constraint pass rate trend")
+            st.line_chart(hist_df.set_index("iteration")[["constraint_pass_rate"]])
         st.dataframe(hist_df, use_container_width=True)
     else:
         st.info("No history records were produced.")

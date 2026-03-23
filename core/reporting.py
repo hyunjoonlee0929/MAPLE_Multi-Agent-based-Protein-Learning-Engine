@@ -17,7 +17,28 @@ def export_history_json(history: list[dict], output_path: Path) -> None:
 
 def export_history_csv(history: list[dict], output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    headers = ["iteration", "best_sequence", "best_score", "mean_score", "num_candidates"]
+
+    default_headers = [
+        "iteration",
+        "best_sequence",
+        "best_score",
+        "mean_score",
+        "num_candidates",
+        "constraint_pass_rate",
+        "constraint_passed",
+        "constraint_total",
+        "constraint_mode",
+    ]
+
+    dynamic_headers: list[str] = []
+    seen = set(default_headers)
+    for row in history:
+        for key in row.keys():
+            if key not in seen:
+                seen.add(key)
+                dynamic_headers.append(key)
+
+    headers = default_headers + dynamic_headers
 
     with output_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=headers)

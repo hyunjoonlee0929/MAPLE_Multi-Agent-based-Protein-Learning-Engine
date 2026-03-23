@@ -42,6 +42,26 @@ class MaplePipeline:
         self.evaluation_agent = evaluation_agent
         self.logger = logger or logging.getLogger(__name__)
 
+    def _attach_constraint_history(self, state: State) -> None:
+        if not state.get("history"):
+            return
+
+        summary = state.get("constraint_summary")
+        if not isinstance(summary, dict):
+            return
+
+        total = int(summary.get("total", 0))
+        passed = int(summary.get("passed", 0))
+        pass_rate = (float(passed) / float(total)) if total > 0 else 0.0
+
+        state["history"][-1]["constraint_enabled"] = bool(summary.get("enabled", False))
+        state["history"][-1]["constraint_mode"] = summary.get("mode")
+        state["history"][-1]["constraint_penalty"] = summary.get("penalty")
+        state["history"][-1]["constraint_passed"] = passed
+        state["history"][-1]["constraint_total"] = total
+        state["history"][-1]["constraint_pass_rate"] = pass_rate
+        state["history"][-1]["constraint_violation_counts"] = summary.get("violation_counts", {})
+
     def run(self, state: State) -> State:
         for iteration in range(self.config.num_iterations):
             state["iteration"] = iteration
@@ -53,6 +73,7 @@ class MaplePipeline:
             state = self.evaluation_agent.run(state)
             ensure_numpy_embeddings(state)
             state = self.optimization_agent.run(state)
+            self._attach_constraint_history(state)
 
             best_seq = state["history"][-1]["best_sequence"]
             best_score = state["history"][-1]["best_score"]

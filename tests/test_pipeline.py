@@ -19,6 +19,9 @@ def test_pipeline_runs_multiple_iterations_end_to_end() -> None:
         "mutation_rate": 1,
         "selection_strategy": "diverse",
         "min_hamming_distance": 1,
+        "constraint_enabled": True,
+        "constraint_mode": "hard",
+        "min_stability": -10.0,
         "w_stability": 0.35,
         "w_activity": 0.35,
         "w_uncertainty": 0.10,
@@ -45,3 +48,6 @@ def test_pipeline_runs_multiple_iterations_end_to_end() -> None:
     assert len(final_state["scores"]) == 6
     assert final_state["next_sequences"] is not None
     assert all(isinstance(score, float) for score in final_state["scores"])
+    assert "constraint_pass_rate" in final_state["history"][-1]
+    assert "constraint_passed" in final_state["history"][-1]
+    assert "constraint_total" in final_state["history"][-1]

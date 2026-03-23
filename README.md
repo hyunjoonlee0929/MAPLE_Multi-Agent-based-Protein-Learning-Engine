@@ -109,6 +109,12 @@ python3 main.py \
 
 In `soft` mode, violating candidates are not dropped, but their scores are penalized.
 
+MAPLE now records per-iteration constraint tracking in history:
+- `constraint_pass_rate`
+- `constraint_passed`
+- `constraint_total`
+- `constraint_mode`
+
 ## Scoring Presets
 You can use preset profiles and automatic weight normalization:
 - `balanced`
