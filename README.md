@@ -28,6 +28,37 @@ cd /Users/hyunjoon/codex/MAPLE
 streamlit run app.py
 ```
 
+## Upgrade Step: Labeled Property Model
+You can train a lightweight labeled surrogate model (stability/activity) and plug it into MAPLE.
+
+### 1) Prepare labeled CSV
+Expected columns:
+- `sequence`
+- `stability`
+- `activity`
+
+A sample dataset is included at:
+- `/Users/hyunjoon/codex/MAPLE/data/sample_property_labels.csv`
+
+### 2) Train NPZ checkpoint
+```bash
+cd /Users/hyunjoon/codex/MAPLE
+python3 scripts/train_property_numpy.py \
+  --data data/sample_property_labels.csv \
+  --output checkpoints/property_linear.npz \
+  --embedding-dim 128
+```
+
+### 3) Run MAPLE with trained checkpoint
+```bash
+cd /Users/hyunjoon/codex/MAPLE
+python3 main.py \
+  --property-checkpoint checkpoints/property_linear.npz \
+  --num-iterations 5
+```
+
+The Streamlit UI also supports entering the checkpoint path in the sidebar.
+
 ## UI Features
 - Sidebar controls for runtime/model/scoring parameters
 - One-click execution of optimization loop
@@ -38,6 +69,7 @@ streamlit run app.py
 ## Key Files
 - `main.py`: reusable run service + CLI entrypoint
 - `app.py`: Streamlit UI dashboard
+- `scripts/train_property_numpy.py`: label-based NPZ property model trainer
 - `core/pipeline.py`: orchestration loop
 - `core/reporting.py`: artifact export
 - `agents/*.py`: independently testable agent logic

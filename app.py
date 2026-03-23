@@ -103,6 +103,11 @@ with st.sidebar:
     embedding_dim = st.slider("Embedding Dim", min_value=8, max_value=1024, value=int(model.get("embedding_dim", 128)), step=8)
     uncertainty_samples = st.slider("Uncertainty Samples", min_value=1, max_value=20, value=int(model.get("uncertainty_samples", 5)))
     uncertainty_noise = st.slider("Uncertainty Noise", min_value=0.0, max_value=0.2, value=float(model.get("uncertainty_noise", 0.02)), step=0.005)
+    property_checkpoint = st.text_input(
+        "Property Checkpoint (.npz or .pt)",
+        value=str(model.get("property_checkpoint", "")),
+        help="Optional path to trained property model checkpoint.",
+    )
 
     run_clicked = st.button("Run MAPLE", type="primary", use_container_width=True)
 
@@ -125,6 +130,7 @@ if run_clicked:
         "w_uncertainty": float(w_uncertainty),
         "structure_backend": structure_backend,
         "embedding_dim": int(embedding_dim),
+        "property_checkpoint": property_checkpoint.strip() or None,
         "uncertainty_samples": int(uncertainty_samples),
         "uncertainty_noise": float(uncertainty_noise),
     }

@@ -58,17 +58,44 @@ if TORCH_AVAILABLE:
 
 
 class NumpyPropertyPredictor:
-    """NumPy fallback predictor when PyTorch is unavailable."""
+    """NumPy predictor supporting random init or NPZ checkpoint loading."""
 
-    def __init__(self, embedding_dim: int = 128, hidden_dim: int = 64) -> None:
+    def __init__(
+        self,
+        embedding_dim: int = 128,
+        hidden_dim: int = 64,
+        weights: np.ndarray | None = None,
+        bias: np.ndarray | None = None,
+    ) -> None:
+        self.mode = "mlp"
+
+        if weights is not None and bias is not None:
+            self.mode = "linear"
+            self.linear_weights = np.asarray(weights, dtype=np.float32)
+            self.linear_bias = np.asarray(bias, dtype=np.float32)
+            return
+
         rng = np.random.default_rng(42)
-        self.w1 = rng.normal(0, 0.1, size=(embedding_dim, hidden_dim))
+        self.w1 = rng.normal(0, 0.1, size=(embedding_dim, hidden_dim)).astype(np.float32)
         self.b1 = np.zeros((hidden_dim,), dtype=np.float32)
-        self.w2 = rng.normal(0, 0.1, size=(hidden_dim, 2))
+        self.w2 = rng.normal(0, 0.1, size=(hidden_dim, 2)).astype(np.float32)
         self.b2 = np.zeros((2,), dtype=np.float32)
+
+    @classmethod
+    def from_npz(cls, checkpoint_path: str | Path) -> "NumpyPropertyPredictor":
+        data = np.load(Path(checkpoint_path), allow_pickle=False)
+        if "weights" not in data or "bias" not in data:
+            raise ValueError("NPZ checkpoint must include 'weights' and 'bias'")
+        return cls(weights=data["weights"], bias=data["bias"])
 
     def predict(self, embedding_batch):
         x = np.asarray(embedding_batch, dtype=np.float32)
+        if x.ndim == 1:
+            x = np.expand_dims(x, axis=0)
+
+        if self.mode == "linear":
+            return x @ self.linear_weights + self.linear_bias
+
         h = np.maximum(0.0, x @ self.w1 + self.b1)
         return h @ self.w2 + self.b2
 
@@ -87,18 +114,25 @@ class PropertyPredictor:
         self.uncertainty_samples = max(1, uncertainty_samples)
         self.uncertainty_noise = max(0.0, uncertainty_noise)
 
+        ckpt = str(checkpoint_path).strip() if checkpoint_path else ""
+        use_numpy_npz = ckpt.endswith(".npz")
+
+        if use_numpy_npz:
+            self.backend: PropertyPredictorLike = NumpyPropertyPredictor.from_npz(ckpt)
+            return
+
         if TORCH_AVAILABLE:
             backend = TorchPropertyPredictor(
                 embedding_dim=embedding_dim,
                 hidden_dim=hidden_dim,
             )
-            if checkpoint_path:
-                backend.load_checkpoint(checkpoint_path)
-            self.backend: PropertyPredictorLike = backend
+            if ckpt:
+                backend.load_checkpoint(ckpt)
+            self.backend = backend
         else:
-            if checkpoint_path:
+            if ckpt:
                 raise RuntimeError(
-                    "checkpoint_path requires PyTorch runtime, but torch is not installed"
+                    "Non-NPZ checkpoint_path requires PyTorch runtime, but torch is not installed"
                 )
             self.backend = NumpyPropertyPredictor(
                 embedding_dim=embedding_dim,
