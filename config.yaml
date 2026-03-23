@@ -1,6 +1,7 @@
 project_title: "MAPLE (Multi-Agent Protein Learning Engine)"
 project_description: "MAPLE is a multi-agent system that autonomously explores protein sequence space and optimizes enzyme function through iterative learning."
 
+seed: 42
 seed_sequence: "MKTFFVAVLGLCLLSQAS"
 num_iterations: 5
 
@@ -11,3 +12,5 @@ runtime:
 
 model:
   embedding_dim: 128
+  structure_backend: "dummy"
+  property_checkpoint: ""

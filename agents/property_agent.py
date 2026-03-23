@@ -11,9 +11,16 @@ from models.property_model import PropertyPredictor
 class PropertyAgent:
     """Predicts stability and activity from sequence embeddings."""
 
-    def __init__(self, embedding_dim: int = 128) -> None:
+    def __init__(
+        self,
+        embedding_dim: int = 128,
+        property_checkpoint: str | None = None,
+    ) -> None:
         self.embedding_model = RandomEmbeddingModel(embedding_dim=embedding_dim)
-        self.predictor = PropertyPredictor(embedding_dim=embedding_dim)
+        self.predictor = PropertyPredictor(
+            embedding_dim=embedding_dim,
+            checkpoint_path=property_checkpoint,
+        )
 
     def run(self, state: dict) -> dict:
         sequences = state.get("sequences", [])
