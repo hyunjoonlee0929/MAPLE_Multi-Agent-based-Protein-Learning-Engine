@@ -1,4 +1,4 @@
-# MAPLE (Multi-Agent Protein Learning Engine)
+# MAPLE (Multi-Agent based Protein Learning Engine)
 
 MAPLE is a multi-agent system that autonomously explores protein sequence space and optimizes enzyme function through iterative learning.
 
