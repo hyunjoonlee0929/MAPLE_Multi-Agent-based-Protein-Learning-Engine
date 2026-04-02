@@ -1,0 +1,11 @@
+{
+  "datasets": [
+    {
+      "name": "SampleLabels",
+      "path": "data/sample_property_labels.csv",
+      "source_url": "https://example.org/replace-with-public-dataset-url",
+      "license": "Unknown",
+      "notes": "Template entry. Replace path/source_url with external public dataset CSV."
+    }
+  ]
+}

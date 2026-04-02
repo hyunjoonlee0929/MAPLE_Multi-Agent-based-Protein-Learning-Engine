@@ -320,6 +320,36 @@ Outputs:
 - `outputs/closed_loop_campaign/train_dataset_final.csv`
 - per-round model checkpoints and MAPLE artifacts
 
+## Public Dataset Benchmark Pipeline
+Use a JSON manifest of public datasets and automatically generate reproducible benchmark tables.
+
+### 1) Prepare manifest
+Template file:
+- `benchmarks/public_datasets_manifest.json`
+
+Each dataset entry should include:
+- `name`
+- `path` (CSV with `sequence,stability,activity`)
+- `source_url`
+- `license`
+
+### 2) Run benchmark
+```bash
+cd MAPLE
+python3 scripts/benchmark_public_datasets.py \
+  --manifest benchmarks/public_datasets_manifest.json \
+  --output-dir outputs/public_benchmark \
+  --embedding-backends random \
+  --split-mode scaffold \
+  --split-seeds "1,7,13,21,42" \
+  --ensemble-size 3
+```
+
+Outputs:
+- `outputs/public_benchmark/public_benchmark_report.json`
+- `outputs/public_benchmark/public_benchmark_leaderboard.csv`
+- `outputs/public_benchmark/public_benchmark_table.md`
+
 ## DBTL Ingestion and Auto-Retrain Trigger
 DBTL test records can be ingested to automatically refresh the property model.
 
